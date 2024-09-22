@@ -1,0 +1,48 @@
+{
+	"background"       : {
+		"bg_image"    : "url(https://stockmanagementlabs.com/wp-content/uploads/2024/02/waves-pick-pack.svg)",
+		"bg_position" : "bottom",
+		"bg_size"     : "contain",
+		"bg_repeat"   : "no-repeat",
+		"bg_color"    : "#fff"
+	},
+	"dash_background" : {
+        "bg_color" : "#fff"
+    },
+	"images"           : {
+		"logo"      : "https://stockmanagementlabs.com/wp-content/uploads/2023/06/st-pp-addons.svg",
+		"dash_logo" : "https://stockmanagementlabs.com/wp-content/uploads/2023/06/st-pp-addons.svg",
+		"logo_css"  : "width: 357px",
+		"top_left"  : "https://stockmanagementlabs.com/wp-content/uploads/2024/02/label-pickpack.svg"
+	},
+	"title"            : {
+		"text"       : "",
+		"text_color" : "black",
+		"text_size"  : "",
+		"text_align" : "center"
+	},
+	"version"          : {
+		"text"       : "",
+		"text_color" : "",
+		"background" : ""
+	},
+	"description"      : {
+		"text"            : "Increase your business efficiency today with our latest stock management tools!",
+		"text_color"      : "#6c757d",
+		"text_size"       : "13px",
+		"text_align"      : "",
+		"dash_text_align" : "left",
+		"padding"         : "15px 9px 25px"
+	},
+	"buttons"          : [
+		{
+			"text"  : "Try ATUM Add-ons",
+			"url"   : "https://stockmanagementlabs.com/addons/",
+			"class" : "btn btn-primary",
+			"css"   : "background-color: #2B8DFC; border-color: #2B8DFC",
+			"hover" : "background-color: #91B3FA !important"
+		}
+	],
+	"additional_class" : "",
+	"transient_key"    : "stock-takes-pick-pack-addons"
+}
