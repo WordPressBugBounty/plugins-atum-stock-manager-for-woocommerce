@@ -7,7 +7,7 @@ Tested up to: 6.6.2
 Requires PHP: 7.3
 WC requires at least: 5.0
 WC tested up to: 9.3.3
-Stable tag: 1.9.41
+Stable tag: 1.9.41.2
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -216,9 +216,29 @@ We officially support: WooCommerce Product Bundles, WooCommerce Subscriptions, W
 
 ---
 
-`1.9.41`
+`1.9.41.2`
 
 *2024-10-23*
+
+**Fixes**
+
+* Added Barcodes PRO addon entry to the addons paths list.
+
+---
+
+`1.9.41.1`
+
+*2024-10-23*
+
+**Fixes**
+
+* Recompiled CSS.
+
+---
+
+`1.9.41`
+
+*2024-10-22*
 
 **Features**
 
@@ -228,6 +248,7 @@ We officially support: WooCommerce Product Bundles, WooCommerce Subscriptions, W
 * Allow filtering the help guides externally.
 * Do not allow adding duplicated barcodes.
 * New marketing popup for the Barcodes PRO add-on launch.
+* Added filter at PO API to allow adding extra data keys.
 
 **Changes**
 
@@ -242,6 +263,9 @@ We officially support: WooCommerce Product Bundles, WooCommerce Subscriptions, W
 * Handle errors when saving ATUM orders.
 * Refactoring.
 * Add the get_sold_last_days filter to the get sold today column calcs.
+* Added parent status criteria to product search in order to exclude variations from draft variables.
+* Include the delete transients execution in the CRON.
+* Removed WC navigation references.
 
 **Fixes**
 
@@ -249,8 +273,8 @@ We officially support: WooCommerce Product Bundles, WooCommerce Subscriptions, W
 * Fixed not instantiated variable.
 * Fixed SCSS deprecation messages.
 * Fixed wrong tax calculation in REST API when creating a PO and price includes taxes.
-* Apply the time zone to the current timestamp when crating an ATUM Order.
-* Fixed worst sellers filter in Stock Central.
+* Fixed select today date in atum-datepicker from other time zones.
+* Fixed deprecation warnings from new Sass compiler.
 
 ---
 
