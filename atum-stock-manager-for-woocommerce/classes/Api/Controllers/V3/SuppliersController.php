@@ -5,7 +5,7 @@
  *
  * @since       1.6.2
  * @author      BE REBEL - https://berebel.studio
- * @copyright   ©2024 Stock Management Labs™
+ * @copyright   ©2025 Stock Management Labs™
  *
  * @package     Atum\Api\Controllers
  * @subpackage  V3
@@ -497,7 +497,8 @@ class SuppliersController extends \WC_REST_Posts_Controller {
 			),
 		);
 
-		return array_merge( $params, $supplier_params );
+		// Allow filtering of the location collection parameters.
+		return apply_filters( "rest_{$this->post_type}_collection_params", array_merge( $params, $supplier_params ), $this->post_type );
 
 	}
 

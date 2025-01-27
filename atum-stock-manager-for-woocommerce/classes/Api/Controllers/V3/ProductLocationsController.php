@@ -6,7 +6,7 @@
  *
  * @since       1.6.2
  * @author      BE REBEL - https://berebel.studio
- * @copyright   ©2024 Stock Management Labs™
+ * @copyright   ©2025 Stock Management Labs™
  *
  * @package     Atum\Api\Controllers
  * @subpackage  V3
@@ -200,6 +200,20 @@ class ProductLocationsController extends \WC_REST_Product_Categories_Controller 
 
 		return TRUE;
 
+	}
+
+	/**
+	 * Get the query params for collections
+	 *
+	 * @since 1.9.44
+	 *
+	 * @return array
+	 */
+	public function get_collection_params() {
+		$params = parent::get_collection_params();
+
+		// Allow filtering of the location collection parameters.
+		return apply_filters( "rest_{$this->taxonomy}_collection_params", $params, $this->taxonomy );
 	}
 
 }

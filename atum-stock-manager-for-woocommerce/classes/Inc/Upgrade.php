@@ -5,7 +5,7 @@
  * @package         Atum
  * @subpackage      Inc
  * @author          BE REBEL - https://berebel.studio
- * @copyright       ©2024 Stock Management Labs™
+ * @copyright       ©2025 Stock Management Labs™
  *
  * @since           1.2.4
  */
@@ -63,7 +63,7 @@ class Upgrade {
 		update_option( 'atum_version', ATUM_VERSION );
 
 		// Delete transients if after every version change.
-		AtumCache::do_delete_transients();
+		AtumCache::delete_transients();
 
 		/************************
 		 * UPGRADE ACTIONS START

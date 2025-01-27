@@ -4,7 +4,7 @@
  *
  * @since       1.8.4
  * @author      BE REBEL - https://berebel.studio
- * @copyright   ©2024 Stock Management Labs™
+ * @copyright   ©2025 Stock Management Labs™
  *
  * @package     Atum\MetaBoxes
  */
@@ -97,7 +97,12 @@ class FileAttachment {
 			return;
 		}
 
-		update_post_meta( $product_id, self::ATUM_ATTACHMENTS_META_KEY, sanitize_text_field( $_POST['atum-attachments'] ) );
+		if ( '[]' === $_POST['atum-attachments'] ) {
+			delete_post_meta( $product_id, self::ATUM_ATTACHMENTS_META_KEY );
+		}
+		else {
+			update_post_meta( $product_id, self::ATUM_ATTACHMENTS_META_KEY, sanitize_text_field( $_POST['atum-attachments'] ) );
+		}
 
 	}
 

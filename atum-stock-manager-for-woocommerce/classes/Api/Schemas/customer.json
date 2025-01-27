@@ -1,0 +1,166 @@
+{
+	"title": "customer",
+	"version": 0,
+	"primaryKey": "id",
+	"type": "object",
+	"required": [
+		"_deleted",
+		"_rev",
+		"_meta",
+		"_attachments",
+		"id",
+		"email"
+	],
+	"properties": {
+		"id": {
+			"type": "number"
+		},
+		"dateCreated": {
+			"type": "string",
+			"format" : "date-time"
+		},
+		"dateCreatedGMT": {
+			"type": "string",
+			"format" : "date-time"
+		},
+		"dateModified": {
+			"type": "string",
+			"format" : "date-time"
+		},
+		"dateModifiedGMT": {
+			"type": "string",
+			"format" : "date-time"
+		},
+		"email": {
+			"type": "string"
+		},
+		"firstName": {
+			"type": "string"
+		},
+		"lastName": {
+			"type": "string"
+		},
+		"role": {
+			"type": "string"
+		},
+		"username": {
+			"type": "string"
+		},
+		"password": {
+			"type": "string"
+		},
+		"billing": {
+			"type": "object",
+			"properties": {
+				"firstName": {
+					"type": "string"
+				},
+				"lastName": {
+					"type": "string"
+				},
+				"company": {
+					"type": "string"
+				},
+				"address1": {
+					"type": "string"
+				},
+				"address2": {
+					"type": "string"
+				},
+				"city": {
+					"type": "string"
+				},
+				"state": {
+					"type": "string"
+				},
+				"postcode": {
+					"type": "string"
+				},
+				"country": {
+					"type": "string"
+				},
+				"email": {
+					"type": "string"
+				},
+				"phone": {
+					"type": "string"
+				}
+			}
+		},
+		"shipping": {
+			"type": "object",
+			"properties": {
+				"firstName": {
+					"type": "string"
+				},
+				"lastName": {
+					"type": "string"
+				},
+				"company": {
+					"type": "string"
+				},
+				"address1": {
+					"type": "string"
+				},
+				"address2": {
+					"type": "string"
+				},
+				"city": {
+					"type": "string"
+				},
+				"state": {
+					"type": "string"
+				},
+				"postcode": {
+					"type": "string"
+				},
+				"country": {
+					"type": "string"
+				}
+			}
+		},
+		"isPayingCustomer": {
+			"type": "boolean"
+		},
+		"avatarUrl": {
+			"type": "string"
+		},
+		"itemType": {
+			"type": "string"
+		},
+		"_id": {
+			"type": "string"
+		},
+		"deleted": {
+			"type": "boolean"
+		},
+		"trash": {
+			"type": "boolean"
+		},
+		"conflict": {
+			"type": "boolean"
+		},
+		"_rev": {
+			"type": "string",
+			"minLength": 1
+		},
+		"_deleted": {
+			"type": "boolean"
+		},
+		"_meta": {
+			"type": "object",
+			"required": ["lwt"],
+			"properties": {
+				"lwt": {
+					"type": "number",
+					"minimum": 1,
+					"maximum": 1000000000000000,
+					"multipleOf": 0.01
+				}
+			}
+		},
+		"_attachments": {
+			"type": "object"
+		}
+	}
+}

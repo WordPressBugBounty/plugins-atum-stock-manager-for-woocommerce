@@ -5,7 +5,7 @@
  * @package        Atum
  * @subpackage     Inc
  * @author         BE REBEL - https://berebel.studio
- * @copyright      ©2024 Stock Management Labs™
+ * @copyright      ©2025 Stock Management Labs™
  *
  * @since          0.0.1
  */
@@ -2921,7 +2921,7 @@ final class Ajax {
 		}
 
 		if ( ! $deleting ) {
-			AtumCache::do_delete_transients();
+			AtumCache::delete_transients();
 		}
 
 		do_action( 'atum/ajax/tool_clear_out_atum_transients' );

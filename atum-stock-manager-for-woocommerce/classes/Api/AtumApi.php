@@ -4,7 +4,7 @@
  *
  * @since       1.6.2
  * @author      BE REBEL - https://berebel.studio
- * @copyright   ©2024 Stock Management Labs™
+ * @copyright   ©2025 Stock Management Labs™
  *
  * @package     Atum\Api
  */
@@ -92,43 +92,59 @@ class AtumApi {
 	 */
 	private $paginable_collections = [
 		'attachment',
+		'comment',
+		'inventories', // ATUM Multi Inventory hack.
 		'product',
-		'product_variation',
-		'shop_order',
-		'shop_coupon',
-		'shop_order_refund',
+		'product_attributes',
 		'product_cat',
 		'product_tag',
-		'comment',
+		'product_variation',
+		'shop_coupon',
+		'shop_order',
+		'shop_order_refund',
 	];
 
 	/**
 	 * All the exportable endpoint paths
 	 *
+	 * NOTE: We are using the schema names as endpoint keys for compatibility.
+	 *
 	 * @var string[]
 	 */
 	private static $exportable_endpoints = array(
-		'attributes'         => '/wc/v3/products/attributes',
-		'atum-locations'     => '/wc/v3/products/atum-locations',
-		'atum-order-notes'   => '/wc/v3/atum/atum-order-notes',
-		'categories'         => '/wc/v3/products/categories',
-		'classes'            => '/wc/v3/taxes/classes',
-		'comments'           => '/wp/v2/comments',
-		'coupons'            => '/wc/v3/coupons',
-		'customers'          => '/wc/v3/customers',
-		'dashboard'          => '/wc/v3/atum/dashboard',
-		'inbound-stock'      => '/wc/v3/atum/inbound-stock',
-		'inventory-logs'     => '/wc/v3/atum/inventory-logs',
-		'media'              => '/wp/v2/media',
-		'orders'             => '/wc/v3/orders',
-		'order-refunds'      => '/wc/v3/atum/order-refunds',
-		'products'           => '/wc/v3/products',
-		'product-variations' => '/wc/v3/atum/product-variations',
-		'purchase-orders'    => '/wc/v3/atum/purchase-orders',
-		'settings'           => '/wc/v3/settings',
-		'suppliers'          => '/wc/v3/atum/suppliers',
-		'tags'               => '/wc/v3/products/tags',
-		'taxes'              => '/wc/v3/taxes',
+		'attribute'       => '/wc/v3/products/attributes',
+		'category'        => '/wc/v3/products/categories',
+		'comment'         => array(
+			'atum-order-notes' => '/wc/v3/atum/atum-order-notes', // TODO: Is this needed? Is not enough with the comments export?
+			'comments'         => '/wp/v2/comments',
+		),
+		'coupon'          => '/wc/v3/coupons',
+		'customer'        => '/wc/v3/customers',
+		//'dashboard'      => '/wc/v3/atum/dashboard', TODO: Commented for now. I cannot see any table in the SQLite DB for the dashboard.
+		'inbound-stock'   => '/wc/v3/atum/inbound-stock',
+		'inventory-log'   => '/wc/v3/atum/inventory-logs',
+		'location'        => '/wc/v3/products/atum-locations',
+		'media'           => '/wp/v2/media',
+		'order'           => '/wc/v3/orders',
+		'payment-method'  => '/wc/v3/payment_gateways',
+		'product'         => '/wc/v3/products',
+		'purchase-order'  => '/wc/v3/atum/purchase-orders',
+		'refund'          => '/wc/v3/atum/order-refunds',
+		'shipping-method' => '/wc/v3/shipping_methods',
+		'store-settings'  => array(
+			'wc.general'          => '/wc/v3/settings/general',
+			'wc.admin'            => '/wc/v3/settings/wc_admin',
+			'wc.products'         => '/wc/v3/settings/products',
+			'wc.tax'              => '/wc/v3/settings/tax',
+			'atum.general'        => '/wc/v3/atum/settings/general',
+			'atum.storeDetails'   => '/wc/v3/atum/settings/store_details',
+			'atum.moduleManager'  => '/wc/v3/atum/settings/module_manager',
+		),
+		'supplier'        => '/wc/v3/atum/suppliers',
+		'tag'             => '/wc/v3/products/tags',
+		'tax-class'       => '/wc/v3/taxes/classes',
+		'tax-rate'        => '/wc/v3/taxes',
+		'variation'       => '/wc/v3/atum/product-variations',
 	);
 
 	/**
@@ -144,6 +160,9 @@ class AtumApi {
 				$this->api_controllers['atum-inventory-logs'],
 				$this->api_controllers['atum-inventory-log-notes']
 			);
+			unset(
+				self::$exportable_endpoints['inventory-log'],
+			);
 		}
 
 		if ( ! ModuleManager::is_module_active( 'purchase_orders' ) ) {
@@ -153,6 +172,18 @@ class AtumApi {
 				$this->api_controllers['atum-suppliers'],
 				$this->api_controllers['atum-locations'],
 				$this->api_controllers['atum-inbound-stock']
+			);
+			unset(
+				self::$exportable_endpoints['purchase-order'],
+				self::$exportable_endpoints['supplier'],
+				self::$exportable_endpoints['location'],
+				self::$exportable_endpoints['inbound-stock']
+			);
+		}
+
+		if ( ! wc_coupons_enabled() ) {
+			unset(
+				self::$exportable_endpoints['coupon']
 			);
 		}
 
@@ -274,11 +305,11 @@ class AtumApi {
 			header( 'Access-Control-Allow-Origin: ' . $origin );
 			header( 'Access-Control-Allow-Methods: OPTIONS, GET, POST, PUT, PATCH, DELETE' );
 			header( 'Access-Control-Allow-Credentials: true' );
-			header( 'Vary: Origin', false );
+			header( 'Vary: Origin', FALSE );
 
 		}
 		elseif ( ! headers_sent() && 'GET' === $_SERVER['REQUEST_METHOD'] && ! is_user_logged_in() ) {
-			header( 'Vary: Origin', false );
+			header( 'Vary: Origin', FALSE );
 		}
 
 		return $value;
@@ -286,7 +317,7 @@ class AtumApi {
 	}
 
 	/**
-	 * Increase the posts per page limit (that is set to 100 by WP) when syncing through the ATUM App
+	 * Increase the posts per page limit (that is set to 100 by WP) when syncing through the ATUM App or running a full export
 	 *
 	 * @since 1.9.4
 	 *
@@ -319,8 +350,20 @@ class AtumApi {
 	public function add_exportable_endpoints_hooks() {
 
 		// Exportable endpoints hooks.
-		foreach ( self::get_exportable_endpoints() as $key => $exportable_endpoint ) {
-			add_action( "atum_api_export_endpoint_$key", array( '\Atum\Api\Controllers\V3\FullExportController', 'run_export' ), 10, 4 );
+		foreach ( self::get_exportable_endpoints() as $schema => $exportable_endpoint ) {
+
+			if ( is_array( $exportable_endpoint ) ) {
+
+				foreach ( $exportable_endpoint as $sub_key => $sub_endpoint ) {
+					add_action( "atum_api_export_endpoint_{$schema}_{$sub_key}", array( '\Atum\Api\Controllers\V3\FullExportController', 'run_export' ), 10, 6 );
+					add_action( "atum_api_dump_endpoint_{$schema}_{$sub_key}", array( '\Atum\Api\Controllers\V3\FullExportController', 'generate_sql_dump' ), 10, 3 );
+				}
+
+			}
+			else {
+				add_action( "atum_api_export_endpoint_$schema", array( '\Atum\Api\Controllers\V3\FullExportController', 'run_export' ), 10, 6 );
+				add_action( "atum_api_dump_endpoint_$schema", array( '\Atum\Api\Controllers\V3\FullExportController', 'generate_sql_dump' ), 10, 3 );
+			}
 		}
 
 	}

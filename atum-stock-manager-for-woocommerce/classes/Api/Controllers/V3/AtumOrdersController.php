@@ -4,7 +4,7 @@
  *
  * @since       1.6.2
  * @author      BE REBEL - https://berebel.studio
- * @copyright   ©2024 Stock Management Labs™
+ * @copyright   ©2025 Stock Management Labs™
  *
  * @package     Atum\Api\Controllers
  * @subpackage  V3
@@ -372,7 +372,8 @@ abstract class AtumOrdersController extends \WC_REST_Orders_Controller {
 		}
 
 		// Force the order to reload the items in case they've changed.
-		$order->read_items();
+		$order->save();
+		//$order->read_items(); This was causing that if an item gets deleted, the returned order was not updated.
 
 		/**
 		 * Filters an object before it is inserted via the REST API.
@@ -574,6 +575,26 @@ abstract class AtumOrdersController extends \WC_REST_Orders_Controller {
 		 * @param \WP_REST_Request $request The request used.
 		 */
 		return apply_filters( 'atum/api/rest_orders_prepare_object_query', $args, $request );
+
+	}
+
+	/**
+	 * Prepare a single order output for response.
+	 *
+	 * @since  3.0.0
+	 *
+	 * @param  AtumOrderModel $object ATUM Order instance.
+	 * @param  \WP_REST_Request $request Request object.
+	 *
+	 * @return \WP_REST_Response
+	 */
+	public function prepare_object_for_response( $object, $request ) {
+
+		if ( ! $object->get_post() instanceof \WP_Post ) {
+			return rest_ensure_response( new \WP_Error( 'atum_rest_invalid_post_id', __( 'ATUM Order ID not found.', ATUM_TEXT_DOMAIN ), [ 'status' => 404 ] ) );
+		}
+
+		return parent::prepare_object_for_response( $object, $request );
 
 	}
 

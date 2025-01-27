@@ -5,7 +5,7 @@
  * @package        Atum
  * @subpackage     Cli
  * @author         BE REBEL - https://berebel.studio
- * @copyright      ©2024 Stock Management Labs™
+ * @copyright      ©2025 Stock Management Labs™
  *
  * @since          1.9.3.1
  */
@@ -141,7 +141,7 @@ final class CliCommands {
 	 * @since 1.9.3.1
 	 */
 	public static function atum_tool_clear_out_atum_transients() {
-		AtumCache::do_delete_transients();
+		AtumCache::delete_transients();
 
 		do_action( 'atum/cli/tool_clear_out_atum_transients' );
 		\WP_CLI::line( '' );
