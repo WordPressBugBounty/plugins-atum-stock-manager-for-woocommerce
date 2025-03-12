@@ -528,7 +528,7 @@ final class Helpers {
 	 * @param int       $date_end         Optional. The max date to calculate the items' sales (must be a string format convertible with strtotime in the WP's time zone).
 	 * @param array|int $items            Optional. Array of Product IDs (or single ID) we want to calculate sales from.
 	 * @param array     $colums           Optional. Which columns to return from DB. Possible values: "qty", "total" and "prod_id".
-	 * @param bool      $use_lookup_table Optional. Whether to use the WC order product lookup tables (if available).
+	 * @param bool      $use_lookup_table Optional. Whether to use the WC order product lookup tables (if available). NOTE: This should be set to false when we pretend to save a calculated value to avoid using the lookup tables when they are not updated yet.
 	 *
 	 * @return array|int|float
 	 */
@@ -1692,7 +1692,7 @@ final class Helpers {
 	 */
 	public static function suppliers_dropdown( $args ) {
 
-		if ( ! ModuleManager::is_module_active( 'purchase_orders' ) || ! AtumCapabilities::current_user_can( 'read_supplier' ) ) {
+		if ( ! ModuleManager::is_module_active( 'purchase_orders' ) || ! AtumCapabilities::current_user_can( 'read_suppliers' ) ) {
 			return '';
 		}
 
@@ -3124,7 +3124,7 @@ final class Helpers {
 		$use_lookup = $wpdb->get_var( "SHOW TABLES LIKE '$order_product_lookup_table';" ) && $wpdb->get_var( "SELECT COUNT(*) FROM $order_product_lookup_table" ) > 0;
 		AtumCache::set_transient( $transient_key, wc_bool_to_string( $use_lookup ), WEEK_IN_SECONDS, TRUE );
 
-		return $use_lookup;
+		return apply_filters( 'atum/use_wc_order_product_lookup_table', $use_lookup );
 
 	}
 
@@ -3671,10 +3671,10 @@ final class Helpers {
 
 		// Parent statuses.
 		if ( ! $statuses || ! is_array( $statuses ) ) {
-			$where_clauses[] = "( posts.post_parent = 0 OR ( SELECT posts.post_status FROM $wpdb->posts pp WHERE pp.ID = posts.post_parent ) IN ('" . implode( "','", $post_statuses ) . "') ) ";
+			$where_clauses[] = "( posts.post_parent = 0 OR ( SELECT pp.post_status FROM $wpdb->posts pp WHERE pp.ID = posts.post_parent ) IN ('" . implode( "','", $post_statuses ) . "') ) ";
 		}
 		else {
-			$where_clauses[] = "( posts.post_parent = 0 OR ( SELECT posts.post_status FROM $wpdb->posts pp WHERE pp.ID = posts.post_parent ) IN ('" . implode( "','", $statuses ) . "') ) ";
+			$where_clauses[] = "( posts.post_parent = 0 OR ( SELECT pp.post_status FROM $wpdb->posts pp WHERE pp.ID = posts.post_parent ) IN ('" . implode( "','", $statuses ) . "') ) ";
 		}
 
 		$where_query = implode( ' AND ', apply_filters( 'atum/search_products/where_clauses', $where_clauses, $term, $type, $include_variations, $statuses, $limit, $include, $exclude ) );
@@ -3986,36 +3986,60 @@ final class Helpers {
 		// If the ATUM uploads directory does not exist, try to create it.
 		if ( ! is_dir( $atum_dir ) ) {
 
-			$success = mkdir( $atum_dir, 0755, TRUE );
+			$success = mkdir( $atum_dir, 0775, TRUE );
 
 			// If wasn't created, use default uploads folder.
 			if ( ! $success || ! is_writable( $atum_dir ) ) {
 				return new \WP_Error( 'atum_uploads_dir', esc_html__( 'ATUM uploads directory could not be created or is not writable.', ATUM_TEXT_DOMAIN ) );
 			}
 
-			// Create .htaccess file to prevent direct access.
-			$htaccess_content = "# Prevent direct access to exported files\n";
-			$htaccess_content .= "Order Allow,Deny\n";
-			$htaccess_content .= "Deny from all\n";
-			$htaccess_content .= "\n";
-			$htaccess_content .= "# Allow internal WordPress requests\n";
-			$htaccess_content .= "<IfModule mod_rewrite.c>\n";
-			$htaccess_content .= "RewriteEngine On\n";
-			$htaccess_content .= "RewriteCond %{REQUEST_URI} !^/wp-admin [NC]\n";
-			$htaccess_content .= "RewriteCond %{REQUEST_URI} !^/wp-includes [NC]\n";
-			$htaccess_content .= "RewriteRule ^.*$ - [F,L]\n";
-			$htaccess_content .= "</IfModule>\n";
-
-			// Write .htaccess file.
-			file_put_contents( $atum_dir . '/.htaccess', $htaccess_content );
-
-			// Create an index.html to further prevent directory listing.
-			touch( $atum_dir . '/index.html' );
+			self::secure_directory( $atum_dir );
 
 		}
 
 		return 'path' === $type ? trailingslashit( $atum_dir ) : trailingslashit( $uploads['baseurl'] ) . 'atum/';
 
+	}
+
+	/**
+	 * Secure a directory
+	 *
+	 * @since 1.9.45
+	 *
+	 * @param string $dir_path
+	 */
+	public static function secure_directory( $dir_path ) {
+
+		// Create .htaccess file to prevent direct access.
+		$htaccess_content = "# Prevent direct access to exported files\n";
+		$htaccess_content .= "Order Allow,Deny\n";
+		$htaccess_content .= "Deny from all\n";
+		$htaccess_content .= "\n";
+		$htaccess_content .= "# Allow internal WordPress requests\n";
+		$htaccess_content .= "<IfModule mod_rewrite.c>\n";
+		$htaccess_content .= "RewriteEngine On\n";
+		$htaccess_content .= "RewriteCond %{REQUEST_URI} !^/wp-admin [NC]\n";
+		$htaccess_content .= "RewriteCond %{REQUEST_URI} !^/wp-includes [NC]\n";
+		$htaccess_content .= "RewriteRule ^.*$ - [F,L]\n";
+		$htaccess_content .= "</IfModule>\n";
+
+		// Write .htaccess file.
+		file_put_contents( $dir_path . '/.htaccess', $htaccess_content );
+
+		// Create an index.html to further prevent directory listing.
+		touch( $dir_path . '/index.html' );
+
+	}
+
+	/**
+	 * Check whether the WP CLI is running a command
+	 *
+	 * @since 1.9.45
+	 *
+	 * @return bool
+	 */
+	public static function is_running_cli() {
+		return defined( 'WP_CLI' ) && WP_CLI;
 	}
 
 }

@@ -520,7 +520,15 @@ class Hooks {
 
 			// Remove the ATUM queues checking transient when changing any sales CRON option.
 			if (
-				( ! isset( $old_value['calc_prop_cron'] ) && isset( $option_value['calc_prop_cron'] ) ) || (
+				( ! isset( $old_value['calc_prop_cron'] ) && isset( $option_value['calc_prop_cron'] ) ) ||
+				( isset( $old_value['calc_prop_cron'] ) && ! isset( $option_value['calc_prop_cron'] ) ) ||
+				( isset( $old_value['calc_prop_cron_interval'] ) && ! isset( $option_value['calc_prop_cron_interval'] ) ) ||
+				( ! isset( $old_value['calc_prop_cron_interval'] ) && isset( $option_value['calc_prop_cron_interval'] ) ) ||
+				( isset( $old_value['calc_prop_cron_type'] ) && ! isset( $option_value['calc_prop_cron_type'] ) ) ||
+				( ! isset( $old_value['calc_prop_cron_type'] ) && isset( $option_value['calc_prop_cron_type'] ) ) ||
+				( isset( $old_value['calc_prop_cron_start'] ) && ! isset( $option_value['calc_prop_cron_start'] ) ) ||
+				( ! isset( $old_value['calc_prop_cron_start'] ) && isset( $option_value['calc_prop_cron_start'] ) ) ||
+				(
 					$old_value['calc_prop_cron'] !== $option_value['calc_prop_cron'] ||
 					$old_value['calc_prop_cron_interval'] !== $option_value['calc_prop_cron_interval'] ||
 					$old_value['calc_prop_cron_type'] !== $option_value['calc_prop_cron_type'] ||
@@ -1347,11 +1355,8 @@ class Hooks {
 			add_action( 'woocommerce_no_stock', array( 'WC_Emails', $function ) );
 			add_action( 'woocommerce_low_stock', array( 'WC_Emails', $function ) );
 
-			if ( is_a( $order_id, 'WC_Order' ) ) {
-				$order = $order_id;
-			} else {
-				$order = wc_get_order( $order_id );
-			}
+			$order = $order_id instanceof \WC_Order ? $order_id : wc_get_order( $order_id );
+
 			// We need an order, and a store with stock management to continue.
 			if ( ! $order || 'yes' !== get_option( 'woocommerce_manage_stock' ) || ! apply_filters( 'woocommerce_can_reduce_order_stock', true, $order ) ) {
 				return;
@@ -1364,7 +1369,7 @@ class Hooks {
 
 				$product = $item->get_product();
 
-				if ( $product->get_manage_stock() ) {
+				if ( $product && $product->get_manage_stock() ) {
 
 					$qty       = apply_filters( 'woocommerce_order_item_quantity', $item->get_quantity(), $order, $item );
 					$new_stock = $product->get_stock_quantity();
@@ -1384,6 +1389,7 @@ class Hooks {
 			}
 
 			self::trigger_stock_change_notifications( $order, $changes );
+
 		}
 
 	}

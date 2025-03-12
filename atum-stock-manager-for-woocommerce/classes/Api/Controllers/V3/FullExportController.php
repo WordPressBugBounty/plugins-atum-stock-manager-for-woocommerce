@@ -21,6 +21,7 @@ use Atum\Components\AtumCache;
 use Atum\Components\AtumOrders\AtumComments;
 use Atum\Inc\Helpers;
 
+
 class FullExportController extends \WC_REST_Controller {
 
 	/**
@@ -589,21 +590,21 @@ class FullExportController extends \WC_REST_Controller {
 	 */
 	private function export_dump_file( $user_app_id, $schema = '' ) {
 
-		$dump_file = self::get_dump_file( $user_app_id );
+		$upload_dir = self::get_full_export_upload_dir();
+		$dump_files = glob( $upload_dir . "*$user_app_id.sql" );
 
-		if ( ! file_exists( $dump_file ) ) {
+		if ( ! $dump_files ) {
 			return array(
 				'success' => FALSE,
 				'code'    => 'error',
-				'message' => __( 'The dump file was not found. Please, run the full export again.', ATUM_TEXT_DOMAIN ),
+				'message' => __( 'The dump was not found. Please, run the full export again.', ATUM_TEXT_DOMAIN ),
 			);
 		}
 		else {
 
 			$headers = [
 				'Content-Type'        => 'text/sql',
-				'Content-Length'      => filesize( $dump_file ),
-				'Content-Disposition' => 'attachment; filename="' . basename( $dump_file ) . '"',
+				'Content-Disposition' => 'attachment; filename="atum_dump_' . $user_app_id . '.sql"',
 			];
 
 			$server = rest_get_server();
@@ -620,24 +621,33 @@ class FullExportController extends \WC_REST_Controller {
 
 			if ( $schema ) {
 
-				$sql_blocks = $this->get_sql_blocks( $dump_file, $schema );
+				// In case there are multiple schemas separated by commas.
+				$schema_arr = array_map( 'trim', explode( ',', $schema ) );
 
-				if ( ! empty( $sql_blocks ) ) {
-					foreach ( $sql_blocks as $block ) {
-						echo $block . "\n";
+				foreach ( $schema_arr as $s ) {
+
+					$dump_file = $upload_dir . "atum_dump_{$s}_{$user_app_id}.sql";
+					if ( file_exists( $dump_file ) ) {
+						readfile( $dump_file );
 					}
-				}
-				else {
-					return array(
-						'success' => FALSE,
-						'code'    => 'error',
-						'message' => __( 'Schema block not found in the SQL dump.', ATUM_TEXT_DOMAIN ),
-					);
+					else {
+						return array(
+							'success' => FALSE,
+							'code'    => 'error',
+							'message' => sprintf( __( "No dump found for schema '%s'.", ATUM_TEXT_DOMAIN ), $s ),
+						);
+					}
+
 				}
 
 			}
 			else {
-				readfile( $dump_file );
+
+				// If no specific schema is passed, read all the dump files.
+				foreach ( $dump_files as $dump_file ) {
+					readfile( $dump_file );
+				}
+
 			}
 
 			die(); // We've already sent the file, so we can stop the execution here.
@@ -787,8 +797,11 @@ class FullExportController extends \WC_REST_Controller {
 							// Initialize the generator with table name components
 							$generator = new Generator(
 								$json['schema'],
-								$dump_config
+								$dump_config,
+								array( $json['page'], $json['total_pages'] ),
 							);
+
+							Helpers::adjust_long_process_settings();
 
 							// Generate SQL statements for the specific endpoint.
 							$dump_data .= $generator->generate( $json );
@@ -811,22 +824,30 @@ class FullExportController extends \WC_REST_Controller {
 			}
 		}
 
-		$dump_file = self::get_dump_file( $user_app_id );
-		file_put_contents( $dump_file, $dump_data, FILE_APPEND );
+		$dump_file = self::get_dump_file( $user_app_id, self::find_endpoint_schema( $endpoint ) );
+		$written   = file_put_contents( $dump_file, $dump_data, FILE_APPEND );
 
-		if ( file_exists( $dump_file ) ) {
+		if ( $written !== FALSE ) {
 
-			// Send the completed export notification once all the export tasks have been completed.
-			if ( ! self::are_there_pending_exports() ) {
-				self::notify_subscriber( $user_id );
+			if ( file_exists( $dump_file ) ) {
+
+				// Send the completed export notification once all the export tasks have been completed.
+				if ( ! self::are_there_pending_exports() ) {
+					self::notify_subscriber( $user_id );
+				}
+
+				return TRUE;
+
 			}
 
-			return TRUE;
+			$dump_error_msg = __( "The dump file couldn't be generated.", ATUM_TEXT_DOMAIN );
+			error_log( 'ATUM Full export error: ' . $dump_error_msg );
 
 		}
-
-		$dump_error_msg = __( "The dump file couldn't be generated.", ATUM_TEXT_DOMAIN );
-		error_log( $dump_error_msg );
+		else {
+			$dump_error_msg = __( "The data couldn't be added to the dump file.", ATUM_TEXT_DOMAIN );
+			error_log( 'ATUM Full export error: ' . $dump_error_msg );
+		}
 
 		return array(
 			'success' => FALSE,
@@ -1040,7 +1061,7 @@ class FullExportController extends \WC_REST_Controller {
 						 * Hook args: endpoint, user_id, param, page, format and user_app_id.
 						 * NOTE: These are the parameters that are passed later to the run_export method.
 						 */
-						as_schedule_single_action( gmdate( 'U' ), $hook_name, $hook_args, 'atum', TRUE, 1 );
+						as_enqueue_async_action( $hook_name, $hook_args, 'atum' );
 					}
 
 				}
@@ -1061,7 +1082,7 @@ class FullExportController extends \WC_REST_Controller {
 					 * Hook args: endpoint, user_id, param, page, format and user_app_id.
 					 * NOTE: These are the parameters that are passed later to the run_export method.
 					 */
-					as_schedule_single_action( gmdate( 'U' ), $hook_name, $hook_args, 'atum', TRUE, 1 );
+					as_enqueue_async_action( $hook_name, $hook_args, 'atum' );
 				}
 
 			}
@@ -1093,11 +1114,13 @@ class FullExportController extends \WC_REST_Controller {
 		// Check if the ATUM Full Export upload directory already exists.
 		if ( ! is_dir( $upload_dir ) ) {
 
-			$created_dir = mkdir( $upload_dir, 0755, TRUE );
+			$success = mkdir( $upload_dir, 0775, TRUE );
 
-			if ( ! $created_dir ) {
+			if ( ! $success ) {
 				return new \WP_Error( 'atum_rest_upload_dir_creation_failed', __( 'Something failed when creating a temporary directory under the uploads folder, please check that you have the right permissions', ATUM_TEXT_DOMAIN ) );
 			}
+
+			Helpers::secure_directory( $upload_dir );
 
 		}
 
@@ -1115,11 +1138,12 @@ class FullExportController extends \WC_REST_Controller {
 	 * @since 1.9.44
 	 *
 	 * @param string $user_app_id
+	 * @param string $schema
 	 *
 	 * @return string
 	 */
-	public static function get_dump_file( $user_app_id ) {
-		return self::get_full_export_upload_dir() . "atum_dump_$user_app_id.sql";
+	public static function get_dump_file( $user_app_id, $schema ) {
+		return self::get_full_export_upload_dir() . "atum_dump_{$schema}_{$user_app_id}.sql";
 	}
 
 	/**
@@ -1144,203 +1168,211 @@ class FullExportController extends \WC_REST_Controller {
 			return;
 		}
 
-		$pending_endpoint_transient_key = AtumCache::get_transient_key( self::EXPORTED_ENDPOINTS_TRANSIENT . self::get_file_name( $endpoint, $schema, $params ) );
-		$pending_endpoint               = AtumCache::get_transient( $pending_endpoint_transient_key, TRUE );
+		try {
 
-		Helpers::adjust_long_process_settings();
-
-		if ( $pending_endpoint ) {
+			$pending_endpoint_transient_key = AtumCache::get_transient_key( self::EXPORTED_ENDPOINTS_TRANSIENT . self::get_file_name( $endpoint, $schema, $params ) );
 			AtumCache::delete_transients( $pending_endpoint_transient_key );
-		}
 
-		$page_suffix      = '';
-		$has_missing_data = FALSE;
+			Helpers::adjust_long_process_settings();
 
-		// If this is reached through a cron job, there won't be any user logged in and all these endpoints need a user with permission to be logged in.
-		self::prepare_cron_job_user( $user_id );
-
-		// The /atum-order-notes endpoint is fake, so change the path to comments first.
-		$endpoint_path = '/wc/v3/atum/atum-order-notes' === $endpoint ? '/wp/v2/comments' : $endpoint;
-		$query_params  = [
-			'page'     => $page,
-			'per_page' => 200,
-		];
-
-		// Add extra params for some endpoints.
-		switch ( $endpoint ) {
-			case '/wp/v2/comments':
-				$query_params['type'] = 'order_note';
-
-				// Export only notes after a given date?
-				if ( $params ) {
-					$query_params['after'] = $params;
-				}
-
-				remove_filter( 'comments_clauses', array( AtumComments::get_instance(), 'exclude_atum_order_notes' ) ); // Do not add ATUM Orders type exclusions.
-				remove_filter( 'comments_clauses', array( 'WC_Comments', 'exclude_order_comments' ) ); // Show the WC order notes in the WP comments API endpoint.
-				break;
-
-			case '/wc/v3/atum/atum-order-notes':
-				$query_params['type'] = AtumComments::NOTES_KEY;
-
-				// Export only notes after a given date?
-				if ( $params ) {
-					$query_params['after'] = $params;
-				}
-
-				remove_filter( 'comments_clauses', array( AtumComments::get_instance(), 'exclude_atum_order_notes' ) ); // Do not add ATUM Orders type exclusions.
-				break;
-
-			case '/wp/v2/media':
-				$query_params['linked_post_type'] = 'atum_supplier,product';
-				break;
-
-			case '/wc/v3/customers':
-				$query_params['role'] 	  = 'all';
-				$query_params['per_page'] = 100; // For now, we couldn't find a way to increase the per_page limit here.
-				break;
-
-			case '/wc/v3/products/attributes':
-				$query_params['with_terms'] = 'yes';
-				break;
-
-			case '/wc/v3/products/categories':
-			case '/wc/v3/products/tags':
-				$query_params['hide_empty'] = TRUE;
-				$query_params['per_page'] = 100; // For now, we couldn't find a way to increase the per_page limit here.
-				break;
-
-			case '/wc/v3/products':
-				// Allow exporting products of given status(es).
-				if ( $params ) {
-					$query_params['atum_post_status'] = $params; // Special param.
-				}
-				break;
-
-			case '/wc/v3/atum/suppliers':
-			case '/wc/v3/atum/product-variations':
-				// Allow exporting suppliers of given status(es).
-				if ( $params ) {
-					$query_params['status'] = $params;
-				}
-				break;
-
-			case '/wc/v3/atum/inventory-logs':
-			case '/wc/v3/orders':
-			case '/wc/v3/atum/order-refunds':
-			case '/wc/v3/atum/purchase-orders':
-				// Allow exporting only orders after a given date?
-				if ( $params ) {
-					$query_params['after'] = wc_rest_prepare_date_response( $params );
-				}
-				break;
-
-			case '/wc/v3/taxes':
-			case '/wc/v3/taxes/classes':
-				$query_params['per_page'] = 100; // Not need to increase the limit here.
-				break;
-
-		}
-
-		// Trick to be able to increase the posts per page limit (check \Atum\Api\AtumApi::increase_posts_per_page).
-		$_SERVER['HTTP_ORIGIN'] = 'com.stockmanagementlabs.atum';
-
-		// Do the request to the API endpoint internally.
-		$request = new \WP_REST_Request( 'GET', $endpoint_path );
-		$request->set_query_params( $query_params );
-
-		$server            = rest_get_server();
-		$response          = rest_do_request( $request );
-		$data              = $server->response_to_data( $response, FALSE );
-		$current_hook_name = current_action();
-
-		if ( 200 === $response->status ) {
-
-			if ( isset( $response->headers['X-WP-TotalPages'] ) ) {
-
-				$total_pages = absint( $response->headers['X-WP-TotalPages'] );
-
-				if ( $total_pages > 1 ) {
-
-					$page_suffix = "-{$page}_{$total_pages}";
-
-					if ( $total_pages > $page ) {
-
-						/**
-						 * Hook args: endpoint, user_id, param, page, format and user_app_id.
-						 * NOTE: These are the parameters that are passed later to the run_export method.
-						 * NOTE2: This hook cannot be unique because the previous page schedule is still running here.
-						 */
-						$hook_args = [ $endpoint, $user_id, $params, $page + 1, $format, $user_app_id ];
-						$scheduled = as_schedule_single_action( gmdate( 'U' ), $current_hook_name, $hook_args, 'atum', FALSE, 1 );
-
-						if ( $scheduled ) {
+			$page_suffix      = '';
+			$has_missing_data = FALSE;
+	
+			// If this is reached through a cron job, there won't be any user logged in and all these endpoints need a user with permission to be logged in.
+			self::prepare_cron_job_user( $user_id );
+	
+			// The /atum-order-notes endpoint is fake, so change the path to comments first.
+			$endpoint_path = '/wc/v3/atum/atum-order-notes' === $endpoint ? '/wp/v2/comments' : $endpoint;
+			$query_params  = [
+				'page'     => $page,
+				'per_page' => apply_filters( 'atum/api/full_export_endpoint/posts_per_page', 150 ),
+			];
+	
+			// Add extra params for some endpoints.
+			switch ( $endpoint ) {
+				case '/wp/v2/comments':
+					$query_params['type'] = 'order_note';
+	
+					// Export only notes after a given date?
+					if ( $params ) {
+						$query_params['after'] = $params;
+					}
+	
+					remove_filter( 'comments_clauses', array( AtumComments::get_instance(), 'exclude_atum_order_notes' ) ); // Do not add ATUM Orders type exclusions.
+					remove_filter( 'comments_clauses', array( 'WC_Comments', 'exclude_order_comments' ) ); // Show the WC order notes in the WP comments API endpoint.
+					break;
+	
+				case '/wc/v3/atum/atum-order-notes':
+					$query_params['type'] = AtumComments::NOTES_KEY;
+	
+					// Export only notes after a given date?
+					if ( $params ) {
+						$query_params['after'] = $params;
+					}
+	
+					remove_filter( 'comments_clauses', array( AtumComments::get_instance(), 'exclude_atum_order_notes' ) ); // Do not add ATUM Orders type exclusions.
+					break;
+	
+				case '/wp/v2/media':
+					$query_params['linked_post_type'] = 'atum_supplier,product';
+					break;
+	
+				case '/wc/v3/customers':
+					$query_params['role'] 	  = 'all';
+					$query_params['per_page'] = 100; // For now, we couldn't find a way to increase the per_page limit here.
+					break;
+	
+				case '/wc/v3/products/attributes':
+					$query_params['with_terms'] = 'yes';
+					break;
+	
+				case '/wc/v3/products/categories':
+				case '/wc/v3/products/tags':
+					$query_params['hide_empty'] = TRUE;
+					$query_params['per_page'] = 100; // For now, we couldn't find a way to increase the per_page limit here.
+					break;
+	
+				case '/wc/v3/products':
+					// Allow exporting products of given status(es).
+					if ( $params ) {
+						$query_params['atum_post_status'] = $params; // Special param.
+					}
+					break;
+	
+				case '/wc/v3/atum/suppliers':
+				case '/wc/v3/atum/product-variations':
+					// Allow exporting suppliers of given status(es).
+					if ( $params ) {
+						$query_params['status'] = $params;
+					}
+					break;
+	
+				case '/wc/v3/atum/inventory-logs':
+				case '/wc/v3/orders':
+				case '/wc/v3/atum/order-refunds':
+				case '/wc/v3/atum/purchase-orders':
+					// Allow exporting only orders after a given date?
+					if ( $params ) {
+						$query_params['after'] = wc_rest_prepare_date_response( $params );
+					}
+					break;
+	
+				case '/wc/v3/taxes':
+				case '/wc/v3/taxes/classes':
+					$query_params['per_page'] = 100; // Not need to increase the limit here.
+					break;
+	
+			}
+	
+			// Trick to be able to increase the posts per page limit (check \Atum\Api\AtumApi::increase_posts_per_page).
+			$_SERVER['HTTP_ORIGIN'] = 'com.stockmanagementlabs.atum';
+	
+			// Do the request to the API endpoint internally.
+			$request = new \WP_REST_Request( 'GET', $endpoint_path );
+			$request->set_query_params( $query_params );
+	
+			$server            = rest_get_server();
+			$response          = rest_do_request( $request );
+			$data              = $server->response_to_data( $response, FALSE );
+			$current_hook_name = current_action();
+	
+			if ( 200 === $response->status ) {
+	
+				if ( isset( $response->headers['X-WP-TotalPages'] ) ) {
+	
+					$total_pages = absint( $response->headers['X-WP-TotalPages'] );
+	
+					if ( $total_pages > 1 ) {
+	
+						$page_suffix = "-{$page}_{$total_pages}";
+	
+						if ( $total_pages > $page ) {
+	
+							/**
+							 * Hook args: endpoint, user_id, param, page, format and user_app_id.
+							 * NOTE: These are the parameters that are passed later to the run_export method.
+							 * NOTE2: This hook cannot be unique because the previous page schedule is still running here.
+							 */
+							$hook_args = [ $endpoint, $user_id, $params, $page + 1, $format, $user_app_id ];
+							$scheduled = as_enqueue_async_action( $current_hook_name, $hook_args, 'atum' );
+	
+							if ( ! $scheduled ) {
+									error_log( "ATUM: The next page of the endpoint $endpoint couldn't be scheduled: " );
+									error_log( 'Hook args: ' . var_export( $hook_args, TRUE ) );
+							}
+	
 							// Re-add the endpoint transient again because is not fully exported yet.
 							AtumCache::set_transient( $pending_endpoint_transient_key, $endpoint, DAY_IN_SECONDS, TRUE );
 							$has_missing_data = TRUE; // Avoid removing the transient below.
+	
 						}
-
+	
 					}
-
+	
 				}
-
+	
+				$results = array(
+					'endpoint'    => $endpoint,
+					'schema'	  => $schema,
+					'total_pages' => ! empty( $total_pages ) ? $total_pages : 1,
+					'page'        => $page,
+					'per_page'    => $query_params['per_page'],
+					'params'      => $params,
+					'date'        => wc_rest_prepare_date_response( gmdate( 'Y-m-d H:i:s' ) ),
+					'results'     => $data,
+				);
+	
+				$json_results = wp_json_encode( $results );
+	
 			}
-
-			$results = array(
-				'endpoint'    => $endpoint,
-				'schema'	  => $schema,
-				'total_pages' => ! empty( $total_pages ) ? $total_pages : 1,
-				'page'        => $page,
-				'per_page'    => $query_params['per_page'],
-				'params'      => $params,
-				'date'        => wc_rest_prepare_date_response( gmdate( 'Y-m-d H:i:s' ) ),
-				'results'     => $data,
-			);
-
-			$json_results = wp_json_encode( $results );
-
-		}
-		else {
-			$json_results = wp_json_encode( $data );
-			$page_suffix  = '-error';
-		}
-
-		$upload_dir = self::get_full_export_upload_dir();
-		$file_path  = $upload_dir . self::get_file_name( $endpoint, $schema, $params ) . "$page_suffix.json";
-
-		if ( ! is_wp_error( $upload_dir ) ) {
-
-			// Clean Up the temporary directory, before adding the new export there.
-			if ( is_file( $file_path ) ) {
-				unlink( $file_path );
+			else {
+				error_log( "ATUM: The API request to the endpoint $endpoint failed." );
+				$json_results = wp_json_encode( $data );
+				$page_suffix  = '-error';
 			}
-
-			// Save the file.
-			file_put_contents( $file_path, $json_results ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_read_file_put_contents
-
-		}
-
-		if ( ! $has_missing_data ) {
-
-			// If the format is SQLite, add a final scheduled action to process the data and add the queries to the dump file.
-			if ( 'sqlite' === $format )  {
-
-				$hook_name = str_replace( 'atum_api_export_endpoint_', 'atum_api_dump_endpoint_', $current_hook_name );
-				$hook_args = [ $endpoint, $user_id, $user_app_id ];
-
-				if ( ! as_next_scheduled_action( $hook_name, $hook_args, 'atum' ) ) {
-					as_schedule_single_action( gmdate( 'U' ), $hook_name, $hook_args, 'atum', TRUE, 1 );
+	
+			$upload_dir = self::get_full_export_upload_dir();
+			$file_path  = $upload_dir . self::get_file_name( $endpoint, $schema, $params ) . "$page_suffix.json";
+	
+			if ( ! is_wp_error( $upload_dir ) ) {
+	
+				// Clean Up the temporary directory, before adding the new export there.
+				if ( is_file( $file_path ) ) {
+					unlink( $file_path );
 				}
-
+	
+				// Save the file.
+				file_put_contents( $file_path, $json_results ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_read_file_put_contents
+	
+			}
+	
+			if ( ! $has_missing_data ) {
+	
+				// If the format is SQLite, add a final scheduled action to process the data and add the queries to the dump file.
+				if ( 'sqlite' === $format )  {
+	
+					$hook_name = str_replace( 'atum_api_export_endpoint_', 'atum_api_dump_endpoint_', $current_hook_name );
+					$hook_args = [ $endpoint, $user_id, $user_app_id ];
+	
+					if ( ! as_next_scheduled_action( $hook_name, $hook_args, 'atum' ) ) {
+						as_enqueue_async_action( $hook_name, $hook_args, 'atum' );
+					}
+	
+				}
+	
+				AtumCache::delete_transients( $pending_endpoint_transient_key );
+	
+			}
+	
+			// Send the completed export notification once all the export tasks have been completed.
+			if ( ! self::are_there_pending_exports() && 'sqlite' !== $format ) {
+				self::notify_subscriber( $user_id );
 			}
 
-			AtumCache::delete_transients( $pending_endpoint_transient_key );
+		} catch ( \Exception $e ) {
 
-		}
+			error_log( 'ATUM Error: ' . $e->getMessage() );
 
-		// Send the completed export notification once all the export tasks have been completed.
-		if ( ! self::are_there_pending_exports() && 'sqlite' !== $format ) {
-			self::notify_subscriber( $user_id );
 		}
 
 	}
@@ -1460,7 +1492,8 @@ class FullExportController extends \WC_REST_Controller {
 			] );
 
 			if ( is_wp_error( $response ) || wp_remote_retrieve_response_code( $response ) < 300 ) {
-				error_log( 'ATUM error sending the push notification to the app user: ' . $response->get_error_message() );
+				error_log( 'ATUM: Error sending the push notification to the app user: ' );
+				error_log( is_wp_error( $response ) ? $response->get_error_message() : wp_remote_retrieve_response_message( $response ) );
 			}
 
 			AtumCache::delete_transients( $subscribers_transient_key );
@@ -1648,46 +1681,6 @@ class FullExportController extends \WC_REST_Controller {
 		elseif ( $admin_user && $admin_user !== $user_id ) {
 			wp_set_current_user( $admin_user );
 		}
-
-	}
-
-	/**
-	 * Get a schema's blocks of queries from a SQL file.
-	 *
-	 * @since 1.9.44
-	 *
-	 * @param string $file_path
-	 * @param string $schema
-	 *
-	 * @return string[]
-	 */
-	private function get_sql_blocks( $file_path, $schema ) {
-
-		$file_content = file_get_contents( $file_path );
-		if ( $file_content === FALSE ) {
-			return NULL;
-		}
-
-		// In case there are multiple schemas separated by commas.
-		$schema_arr = array_map( 'trim', explode( ',', $schema ) );
-		$blocks    = [];
-
-		foreach ( $schema_arr as $sch ) {
-
-			// Find the schema block(s) in the file.
-			$pattern = sprintf(
-				'/#\n# Schema: `%s`\n#(.*?)#\n# End of schema: `%s`\n#/s',
-				preg_quote( $sch, '/' ),
-				preg_quote( $sch, '/' )
-			);
-
-			if ( preg_match_all( $pattern, $file_content, $matches ) ) {
-				$blocks = array_merge( $blocks, array_map( 'trim', $matches[1] ) );
-			}
-
-		}
-
-		return $blocks;
 
 	}
 

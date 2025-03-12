@@ -35,6 +35,13 @@ class DataExport {
 	private $number_columns;
 
 	/**
+	 * Only for PDF debugging during development.
+	 *
+	 * @var bool
+	 */
+	const DEBUG_MODE = FALSE;
+
+	/**
 	 * DataExport constructor.
 	 *
 	 * @since 1.2.5
@@ -109,6 +116,11 @@ class DataExport {
 		check_ajax_referer( 'atum-data-export-nonce', 'security' );
 
 		$html_report  = $this->generate_html_report( $_GET );
+
+		if ( self::DEBUG_MODE ) {
+			wp_die( $html_report );
+		}
+
 		$report_title = apply_filters( 'atum/data_export/report_title', __( 'ATUM Stock Central Report', ATUM_TEXT_DOMAIN ) );
 
 		// Landscape or Portrait format.
@@ -125,14 +137,20 @@ class DataExport {
 			if ( ! is_dir( $temp_dir ) ) {
 				
 				// Try to create it.
-				$success = mkdir( $temp_dir, 0755, TRUE );
+				$success = mkdir( $temp_dir, 0775, TRUE );
 				
 				// If wasn't created, use default uploads folder.
 				if ( ! $success || ! is_writable( $temp_dir ) ) {
 					$temp_dir = $atum_dir;
 				}
+				else {
+					Helpers::secure_directory( $temp_dir );
+				}
 				
 			}
+
+			// Try to set the backtrack limit to a higher value and avoid issues with huge amount of data.
+			@ini_set( 'pcre.backtrack_limit', '9999999' );
 			
 			$mpdf = new Mpdf( [
 				'mode'    => 'utf-8',

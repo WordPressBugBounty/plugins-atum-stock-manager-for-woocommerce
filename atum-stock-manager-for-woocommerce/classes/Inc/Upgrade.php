@@ -17,6 +17,7 @@ defined( 'ABSPATH' ) || die;
 use Atum\Addons\Addons;
 use Atum\Components\AtumCache;
 use Atum\Components\AtumCalculatedProps;
+use Atum\Components\AtumCapabilities;
 use Atum\Components\AtumQueues;
 use Atum\InboundStock\InboundStock;
 use Atum\InventoryLogs\Models\Log;
@@ -26,6 +27,7 @@ use Atum\StockCentral\StockCentral;
 use Atum\StockCentral\Lists\ListTable;
 use Atum\Suppliers\Supplier;
 use Atum\Suppliers\Suppliers;
+use Faker\Provider\DateTime;
 
 
 class Upgrade {
@@ -204,6 +206,16 @@ class Upgrade {
 		// ** version 1.9.34 ** Migrate the supplier's description from meta to the post content.
 		if ( version_compare( $db_version, '1.9.34', '<' ) && ! $this->is_fresh_install ) {
 			$this->migrate_supplier_description();
+		}
+
+		// ** version 1.9.44.2 ** Some extra capabilities were added.
+		if ( version_compare( $db_version, '1.9.44.2', '<' ) ) {
+			$this->register_new_atum_capabilities();
+		}
+
+		// ** version 1.9.44.3 ** Secure ATUM's directories.
+		if ( version_compare( $db_version, '1.9.44.3', '<' ) ) {
+			$this->secure_atum_directories();
 		}
 
 		/**********************
@@ -931,7 +943,13 @@ class Upgrade {
 				continue;
 			}
 
-			$next = $action->get_schedule()->get_date()->format( 'Y-m-d H:i:s' );
+			$next = $action->get_schedule()->get_date();
+
+			if ( ! $next ) {
+				continue;
+			}
+
+			$next = $next->format( 'Y-m-d H:i:s' );
 
 			if ( array_key_exists( $hook, $processed ) ) {
 
@@ -1296,6 +1314,56 @@ class Upgrade {
 			LEFT JOIN $wpdb->posts p ON (p.ID = pm.post_id)	
 			WHERE p.post_type = 'atum_supplier' AND pm.meta_key = '_description' 
 		" );
+
+	}
+
+	/**
+	 * Register new ATUM capabilities to the admin roles.
+	 *
+	 * @since 1.9.44.2
+	 */
+	private function register_new_atum_capabilities() {
+		AtumCapabilities::register_atum_capabilities();
+	}
+
+	/**
+	 * Secure ATUM directories.
+	 *
+	 * @since 1.9.44.3
+	 */
+	private function secure_atum_directories() {
+
+		$uploads  = wp_upload_dir();
+		$atum_dir = trailingslashit( $uploads['basedir'] ) . 'atum';
+
+		// ATUM's main directory.
+		if ( is_dir( $atum_dir ) ) {
+			chmod( $atum_dir, 0775 );
+
+			if ( ! file_exists( $atum_dir . '/.htaccess' ) ) {
+				Helpers::secure_directory( $atum_dir );
+			}
+		}
+
+		// Temp directory.
+		$tmp_dir = $atum_dir . '/tmp';
+		if ( is_dir( $tmp_dir ) ) {
+			chmod( $tmp_dir, 0775 );
+
+			if ( ! file_exists( $tmp_dir . '/.htaccess' ) ) {
+				Helpers::secure_directory( $tmp_dir );
+			}
+		}
+
+		// Full export dir.
+		$full_export_dir = $atum_dir . '/atum-api-full-export';
+		if ( is_dir( $full_export_dir ) ) {
+			chmod( $full_export_dir, 0775 );
+
+			if ( ! file_exists( $full_export_dir . '/.htaccess' ) ) {
+				Helpers::secure_directory( $full_export_dir );
+			}
+		}
 
 	}
 

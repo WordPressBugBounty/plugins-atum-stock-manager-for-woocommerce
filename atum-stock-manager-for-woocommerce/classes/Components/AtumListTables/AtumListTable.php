@@ -1002,7 +1002,7 @@ abstract class AtumListTable extends \WP_List_Table {
 
 		$supplier = self::EMPTY_COL;
 
-		if ( ! $this->allow_calcs || ! AtumCapabilities::current_user_can( 'read_supplier' ) ) {
+		if ( ! $this->allow_calcs || ! AtumCapabilities::current_user_can( 'read_suppliers' ) ) {
 			return $supplier;
 		}
 
@@ -1021,7 +1021,7 @@ abstract class AtumListTable extends \WP_List_Table {
 		$supplier_length = absint( apply_filters( 'atum/list_table/column_supplier_length', 20 ) );
 		$supplier_abb    = mb_strlen( $supplier ) > $supplier_length ? trim( mb_substr( $supplier, 0, $supplier_length ) ) . '...' : $supplier;
 
-		if ( $editable && $this->allow_edit && AtumCapabilities::current_user_can( 'edit_supplier' ) ) {
+		if ( $editable && $this->allow_edit && AtumCapabilities::current_user_can( 'edit_suppliers' ) ) {
 
 			if ( self::EMPTY_COL === $supplier ) {
 				$supplier_tooltip = esc_attr__( 'Click to add a supplier', ATUM_TEXT_DOMAIN );
@@ -1085,17 +1085,18 @@ abstract class AtumListTable extends \WP_List_Table {
 
 		$supplier_sku = self::EMPTY_COL;
 
-		if ( ! $this->allow_calcs || ! AtumCapabilities::current_user_can( 'read_supplier' ) ) {
+		if ( ! $this->allow_calcs || ! AtumCapabilities::current_user_can( 'read_suppliers' ) ) {
 			return $supplier_sku;
 		}
 
+		$supplier_id  = $this->list_item->get_supplier_id();
 		$supplier_sku = $this->list_item->get_supplier_sku();
 
 		if ( 0 === strlen( $supplier_sku ) ) {
 			$supplier_sku = self::EMPTY_COL;
 		}
 
-		if ( $editable && $this->allow_edit && AtumCapabilities::current_user_can( 'edit_supplier' ) ) {
+		if ( $editable && $this->allow_edit && AtumCapabilities::current_user_can( 'edit_suppliers' ) ) {
 
 			$args = apply_filters( 'atum/list_table/args_supplier_sku', array(
 				'meta_key'   => 'supplier_sku',
@@ -2428,21 +2429,25 @@ abstract class AtumListTable extends \WP_List_Table {
 		 * Supplier filter
 		 * NOTE: it's important to run this filter after processing all the rest because we need to pass the $args through.
 		 */
-		if ( ! empty( $_REQUEST['supplier'] ) && AtumCapabilities::current_user_can( 'read_supplier' ) ) {
+		if ( ! empty( $_REQUEST['supplier'] ) ) {
 
 			$supplier = absint( $_REQUEST['supplier'] );
 
-			// This query does not get product variations and as each variation may have a distinct supplier,
-			// we have to get them separately and to add their variables to the results.
-			$this->supplier_variation_products = Suppliers::get_supplier_products( $supplier, [ 'product_variation' ], TRUE, $args );
+			if ( AtumCapabilities::current_user_can( 'read_suppliers' ) ) {
 
-			/** TODO: Remove this filters if not needed. Add the supplier products to the results is in conflict with pagination, adding results to each page.
-			if ( ! empty( $this->supplier_variation_products ) ) {
-			add_filter( 'atum/list_table/views_data_products', array( $this, 'add_supplier_variables_to_query' ), 10, 2 );
-			add_filter( 'atum/list_table/items', array( $this, 'add_supplier_variables_to_query' ), 10, 2 );
-			add_filter( 'atum/list_table/views_data_variations', array( $this, 'add_supplier_variations_to_query' ), 10, 2 );
+				// This query does not get product variations and as each variation may have a distinct supplier,
+				// we have to get them separately and to add their variables to the results.
+				$this->supplier_variation_products = Suppliers::get_supplier_products( $supplier, [ 'product_variation' ], TRUE, $args );
+
+				/** TODO: Remove this filters if not needed. Add the supplier products to the results is in conflict with pagination, adding results to each page.
+				 * if ( ! empty( $this->supplier_variation_products ) ) {
+				 * add_filter( 'atum/list_table/views_data_products', array( $this, 'add_supplier_variables_to_query' ), 10, 2 );
+				 * add_filter( 'atum/list_table/items', array( $this, 'add_supplier_variables_to_query' ), 10, 2 );
+				 * add_filter( 'atum/list_table/views_data_variations', array( $this, 'add_supplier_variations_to_query' ), 10, 2 );
+				 * }
+				 */
+
 			}
-			 */
 
 		}
 
@@ -2685,25 +2690,29 @@ abstract class AtumListTable extends \WP_List_Table {
 	 */
 	public function atum_product_data_query_clauses( $pieces ) {
 
-		if ( ! empty( $_REQUEST['supplier'] ) && AtumCapabilities::current_user_can( 'read_supplier' ) ) {
-			global $wpdb;
+		if ( ! empty( $_REQUEST['supplier'] ) ) {
 
-			$supplier = absint( $_REQUEST['supplier'] );
-			$pd_table = $wpdb->prefix . Globals::ATUM_PRODUCT_DATA_TABLE;
+			if ( AtumCapabilities::current_user_can( 'read_suppliers' ) ) {
 
-			$statuses = Globals::get_queryable_product_statuses();
+				global $wpdb;
 
-			$subquery = "
-				SELECT pp.post_parent FROM $wpdb->posts pp
-                LEFT JOIN $pd_table papd ON pp.ID = papd.product_id
-				WHERE pp.post_status IN('" . implode( "','", $statuses ) . "')
-				AND papd.supplier_id = '$supplier'
-			";
+				$supplier = absint( $_REQUEST['supplier'] );
+				$pd_table = $wpdb->prefix . Globals::ATUM_PRODUCT_DATA_TABLE;
+				$statuses = Globals::get_queryable_product_statuses();
 
-			$filter_by_supplier = " AND ( $pd_table.supplier_id = '$supplier' OR $wpdb->posts.ID IN ($subquery) ) ";
+				$subquery = "
+					SELECT pp.post_parent FROM $wpdb->posts pp
+					LEFT JOIN $pd_table papd ON pp.ID = papd.product_id
+					WHERE pp.post_status IN('" . implode( "','", $statuses ) . "')
+					AND papd.supplier_id = '$supplier'
+				";
 
-			$pieces['where']   .= apply_filters( 'atum/list_table/supplier_filter_query_data', $filter_by_supplier );
-			$pieces['distinct'] = 'distinct';
+				$filter_by_supplier = " AND ( $pd_table.supplier_id = '$supplier' OR $wpdb->posts.ID IN ($subquery) ) ";
+
+				$pieces['where']    .= apply_filters( 'atum/list_table/supplier_filter_query_data', $filter_by_supplier );
+				$pieces['distinct'] = 'distinct';
+
+			}
 
 		}
 

@@ -282,7 +282,7 @@ class POExport extends PurchaseOrder {
 			if ( ! is_dir( $temp_dir ) ) {
 
 				// Try to create it.
-				$success = mkdir( $temp_dir, 0755, TRUE );
+				$success = mkdir( $temp_dir, 0775, TRUE );
 
 				// If wasn't created, use default uploads folder.
 				if ( ! $success || ! is_writable( $temp_dir ) ) {
@@ -292,6 +292,9 @@ class POExport extends PurchaseOrder {
 			}
 
 			do_action( 'atum/purchase_orders/po_export/generate', $this->id );
+
+			// Try to set the backtrack limit to a higher value and avoid issues with huge amount of data.
+			@ini_set( 'pcre.backtrack_limit', '9999999' );
 
 			$mpdf = new Mpdf( [
 				'mode'    => 'utf-8',

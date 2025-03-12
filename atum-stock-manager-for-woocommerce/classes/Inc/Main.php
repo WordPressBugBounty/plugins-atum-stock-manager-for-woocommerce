@@ -123,9 +123,6 @@ class Main {
 		// Add the ATUM menu to admin bar.
 		add_action( 'wp_before_admin_bar_render', array( $this, 'add_admin_bar_menu' ) );
 
-		// Load language files.
-		load_plugin_textdomain( ATUM_TEXT_DOMAIN, FALSE, plugin_basename( ATUM_PATH ) . '/languages' ); // phpcs:ignore: WordPress.WP.DeprecatedParameters.Load_plugin_textdomainParam2Found
-
 		// Create menu (priority must be lower than 10).
 		add_action( 'init', array( $this, 'pre_init' ), 1 );
 
@@ -190,6 +187,9 @@ class Main {
 	 */
 	public function init() {
 
+		// Load language files.
+		load_plugin_textdomain( ATUM_TEXT_DOMAIN, FALSE, plugin_basename( ATUM_PATH ) . '/languages' ); // phpcs:ignore: WordPress.WP.DeprecatedParameters.Load_plugin_textdomainParam2Found
+
 		//
 		// Register the Locations taxonomy and link it to products
 		// --------------------------------------------------------!
@@ -216,10 +216,10 @@ class Main {
 			'rewrite'      => FALSE,
 			'public'       => FALSE,
 			'capabilities' => array(
-				'manage_terms' => ATUM_PREFIX . 'manage_location_terms',
-				'edit_terms'   => ATUM_PREFIX . 'edit_location_terms',
-				'delete_terms' => ATUM_PREFIX . 'delete_location_terms',
-				'assign_terms' => ATUM_PREFIX . 'assign_location_terms',
+				'manage_terms' => 'atum_manage_location_terms',
+				'edit_terms'   => 'atum_edit_location_terms',
+				'delete_terms' => 'atum_delete_location_terms',
+				'assign_terms' => 'atum_assign_location_terms',
 			),
 		) );
 
@@ -258,7 +258,6 @@ class Main {
 		// NOTE: The order of the modules is important.
 		// --------------------------------------------!
 		ModuleManager::get_instance();
-		AtumCapabilities::get_instance();
 		Hooks::get_instance();
 		AtumStockDecimals::get_instance();
 		Addons::get_instance();
@@ -271,17 +270,17 @@ class Main {
 		//
 		// Load conditional modules
 		// ------------------------!
-		if ( AtumCapabilities::current_user_can( 'read_inventory_log' ) && ModuleManager::is_module_active( 'inventory_logs' ) ) {
+		if ( AtumCapabilities::current_user_can( 'read_inventory_logs' ) && ModuleManager::is_module_active( 'inventory_logs' ) ) {
 			InventoryLogs::get_instance();
 		}
 
 		if ( ModuleManager::is_module_active( 'purchase_orders' ) ) {
 
-			if ( AtumCapabilities::current_user_can( 'read_supplier' ) ) {
+			if ( AtumCapabilities::current_user_can( 'read_suppliers' ) ) {
 				Suppliers::get_instance();
 
 				// The Suppliers is a dependency for Purchase Orders.
-				if ( AtumCapabilities::current_user_can( 'read_purchase_order' ) ) {
+				if ( AtumCapabilities::current_user_can( 'read_purchase_orders' ) ) {
 
 					PurchaseOrders::get_instance();
 
@@ -327,7 +326,7 @@ class Main {
 		FileAttachment::get_instance();
 
 		// Only load the WP CLI module if WP CLI is running.
-		if ( defined( 'WP_CLI' ) && WP_CLI ) {
+		if ( Helpers::is_running_cli() ) {
 			AtumCli::get_instance();
 		}
 

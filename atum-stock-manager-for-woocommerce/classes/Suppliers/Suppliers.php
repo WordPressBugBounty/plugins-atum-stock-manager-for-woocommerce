@@ -90,7 +90,7 @@ class Suppliers {
 		add_action( 'init', array( $this, 'register_post_type' ) );
 
 		// Global hooks.
-		if ( AtumCapabilities::current_user_can( 'read_supplier' ) ) {
+		if ( AtumCapabilities::current_user_can( 'read_suppliers' ) ) {
 
 			// Add the "Suppliers" link to the ATUM's admin bar menu.
 			add_filter( 'atum/admin/top_bar/menu_items', array( $this, 'add_admin_bar_link' ), 12 );
@@ -103,7 +103,7 @@ class Suppliers {
 		// Admin hooks.
 		if ( is_admin() ) {
 
-			if ( AtumCapabilities::current_user_can( 'read_supplier' ) ) {
+			if ( AtumCapabilities::current_user_can( 'read_suppliers' ) ) {
 
 				// Add custom columns to Suppliers' post type list table.
 				add_filter( 'manage_' . self::POST_TYPE . '_posts_columns', array( $this, 'add_columns' ) );
@@ -114,7 +114,7 @@ class Suppliers {
 
 			}
 
-			if ( AtumCapabilities::current_user_can( 'edit_supplier' ) ) {
+			if ( AtumCapabilities::current_user_can( 'edit_suppliers' ) ) {
 
 				// Add meta boxes to Supplier post UI.
 				add_action( 'add_meta_boxes_' . self::POST_TYPE, array( $this, 'add_meta_boxes' ), 30 );
@@ -142,9 +142,7 @@ class Suppliers {
 	 */
 	public function register_post_type( $args = array() ) {
 
-		// Minimum capability required.
-		$is_user_allowed = AtumCapabilities::current_user_can( 'read_supplier' );
-		$main_menu_item  = Main::get_main_menu_item();
+		$main_menu_item = Main::get_main_menu_item();
 
 		$this->labels = array(
 			'name'                  => __( 'Suppliers', ATUM_TEXT_DOMAIN ),
@@ -171,31 +169,33 @@ class Suppliers {
 			'labels'              => $this->labels,
 			'description'         => __( 'This is where Suppliers are stored.', ATUM_TEXT_DOMAIN ),
 			'public'              => FALSE,
-			'show_ui'             => $is_user_allowed,
+			'show_ui'             => TRUE,
 			'publicly_queryable'  => FALSE,
 			'exclude_from_search' => TRUE,
 			'hierarchical'        => FALSE,
-			'show_in_menu'        => $is_user_allowed ? $main_menu_item['slug'] : FALSE,
+			'show_in_menu'        => $main_menu_item['slug'],
 			'show_in_nav_menus'   => FALSE,
 			'rewrite'             => FALSE,
 			'query_var'           => is_admin(),
 			'supports'            => array( 'title', 'thumbnail', 'custom-fields' ),
 			'has_archive'         => FALSE,
+			'map_meta_cap'        => TRUE,
 			'capabilities'        => array(
-				'edit_post'              => ATUM_PREFIX . 'edit_supplier',
-				'read_post'              => ATUM_PREFIX . 'read_supplier',
-				'delete_post'            => ATUM_PREFIX . 'delete_supplier',
-				'edit_posts'             => ATUM_PREFIX . 'edit_suppliers',
-				'edit_others_posts'      => ATUM_PREFIX . 'edit_others_suppliers',
-				'publish_posts'          => ATUM_PREFIX . 'publish_suppliers',
-				'read_private_posts'     => ATUM_PREFIX . 'read_private_suppliers',
-				'create_posts'           => ATUM_PREFIX . 'create_suppliers',
-				'delete_posts'           => ATUM_PREFIX . 'delete_suppliers',
-				'delete_private_posts'   => ATUM_PREFIX . 'delete_private_suppliers',
-				'delete_published_posts' => ATUM_PREFIX . 'delete_published_suppliers',
-				'delete_other_posts'     => ATUM_PREFIX . 'delete_other_suppliers',
-				'edit_private_posts'     => ATUM_PREFIX . 'edit_private_suppliers',
-				'edit_published_posts'   => ATUM_PREFIX . 'edit_published_suppliers',
+				'edit_post'              => 'atum_edit_supplier',
+				'read_post'              => 'atum_read_supplier',
+				'read' 		             => 'atum_read_suppliers',
+				'delete_post'            => 'atum_delete_supplier',
+				'edit_posts'             => 'atum_edit_suppliers',
+				'edit_others_posts'      => 'atum_edit_others_suppliers',
+				'publish_posts'          => 'atum_publish_suppliers',
+				'read_private_posts'     => 'atum_read_private_suppliers',
+				'create_posts'           => 'atum_create_suppliers',
+				'delete_posts'           => 'atum_delete_suppliers',
+				'delete_private_posts'   => 'atum_delete_private_suppliers',
+				'delete_published_posts' => 'atum_delete_published_suppliers',
+				'delete_other_posts'     => 'atum_delete_other_suppliers',
+				'edit_private_posts'     => 'atum_edit_private_suppliers',
+				'edit_published_posts'   => 'atum_edit_published_suppliers',
 			),
 		), $args ) );
 
