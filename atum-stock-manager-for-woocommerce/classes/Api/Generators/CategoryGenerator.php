@@ -45,20 +45,21 @@ class CategoryGenerator extends GeneratorBase {
 		}
 
 		return array_merge( $this->get_base_fields(), [
-			'id'            => (int) $category['id'],
+			'id'            => (string) $category['id'],
 			'name'          => $category['name'],
 			'slug'          => $category['slug'],
-			'description'   => $category['description'] ?? '',
+			'description'   => $category['description'] ?? NULL,
 			'menuOrder'     => (int) ( $category['menu_order'] ?? 0 ),
-			'parent'        => $this->prepare_ids( $category['parent'] ?? NULL ),
+			'parent'        => $this->prepare_ids( $category['parent'] ?? 0 ),
 			'display'       => $category['display'] ?? 'default',
 			'barcode'       => $category['barcode'] ?? '',
 			'count'         => (int) ( $category['count'] ?? 0 ),
-			'countChildren' => 0, // Default value as per schema
-			'children'      => 0, // Default value as per schema
+			'countChildren' => 0,
+			'children'      => 0,
 			'image'         => $image,
 			'isDefault'     => FALSE,
-			'conflict'      => FALSE,
+			'itemType'      => 'category',
+			'uid'           => NULL,
 		] );
 
 	}

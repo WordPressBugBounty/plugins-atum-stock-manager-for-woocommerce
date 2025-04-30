@@ -11,6 +11,7 @@
  */
 
 import AtumOrders from './components/orders/_atum-orders';
+import BeforeUnload from './components/_before-unload';
 import DateTimePicker from './components/_date-time-picker';
 import EnhancedSelect from './components/_enhanced-select';
 import OrderNotes from './components/orders/_order-notes';
@@ -28,5 +29,11 @@ jQuery( ( $: JQueryStatic ) => {
 
     new AtumOrders( settings, tooltip, dateTimePicker, enhancedSelect );
     new OrderNotes( settings );
+    
+    // Before unload alert.
+    BeforeUnload.addPrompt( () => $( '[name="post_status"]' ).val() !== 'auto-draft' );
+    
+    // Remove the prompt when the form is submitted.
+    $( document ).on( 'submit', '#post', () => BeforeUnload.removePrompt() );
 	
 } );
