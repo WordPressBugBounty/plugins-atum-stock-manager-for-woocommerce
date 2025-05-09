@@ -35,6 +35,16 @@ class ProductGenerator extends GeneratorBase {
 
 		$base_fields = $this->get_base_fields();
 
+		// Prepare tax class data.
+		$tax_class = NULL;
+		if ( ! empty( $product['tax_class'] ) ) {
+			$tax_class = [
+				'_id'  => $product['tax_class'],
+				'slug' => $product['tax_class'],
+				'name' => ucfirst( $product['tax_class'] ) . ' Rate'
+			];
+		}
+
 		return array_merge( $base_fields, [
 			// Product specific fields.
 			'id'                     => (string) $product['id'],
@@ -106,12 +116,8 @@ class ProductGenerator extends GeneratorBase {
 			'downloads'              => $product['downloads'] ?? [],
 			'downloadLimit'          => $product['download_limit'] ?? NULL,
 			'downloadExpiry'         => $product['download_expiry'] ?? NULL,
-			'shippingClass'          => $product['shipping_class'] ?? NULL,
-			'taxClass'               => $product['tax_class'] ?? [
-				'slug'     => 'standard',
-				'_id'      => '',
-				'itemType' => 'tax-class',
-			],
+			'shippingClass'          => $this->prepare_ids( $product['shipping_class'] ?? NULL ),
+			'taxClass'               => $tax_class,
 			'groupedProducts'        => $this->prepare_ids( $product['grouped_products'] ?? NULL ),
 			'upsells'                => $this->prepare_ids( $product['upsells'] ?? NULL ),
 			'crossSells'             => $this->prepare_ids( $product['cross_sells'] ?? NULL ),

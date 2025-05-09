@@ -263,16 +263,23 @@
 				"id"   : {
 					"type" : "string"
 				},
-				"name" : {
+				"_id" : {
 					"type" : "string"
 				}
 			}
+		},
+		"shippingClassId" : {
+			"type" : "number",
+			"nullable" : true
 		},
 		"taxClass"            : {
 			"type" : "object",
 			"nullable" : true,
 			"properties" : {
-				"id"   : {
+				"_id"   : {
+					"type" : "string"
+				},
+				"slug" : {
 					"type" : "string"
 				},
 				"name" : {
@@ -596,16 +603,18 @@
 			"nullable" : true
 		},
 		"metaData"            : {
-			"type"  : "array",
+			"type" : "array",
 			"items" : {
-				"type"       : "object",
+				"type" : "object",
 				"properties" : {
-					"key"   : {
+					"id" : {
+						"type" : "number"
+					},
+					"key" : {
 						"type" : "string"
 					},
 					"value" : {
-						"type" : ["string", "object", "array", "number", "boolean"],
-						"nullable" : true
+						"type" : "string"
 					}
 				}
 			}

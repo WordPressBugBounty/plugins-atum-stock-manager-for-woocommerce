@@ -231,18 +231,15 @@
 		},
 		"taxClass" : {
 			"type" : "object",
+			"nullable" : true,
 			"properties" : {
-				"id" : {
-					"type" : "number",
-					"nullable" : true
-				},
-				"_id" : {
+				"_id"   : {
 					"type" : "string"
 				},
 				"slug" : {
 					"type" : "string"
 				},
-				"itemType" : {
+				"name" : {
 					"type" : "string"
 				}
 			}
@@ -253,7 +250,7 @@
 				"type" : "object",
 				"properties" : {
 					"id" : {
-						"type" : "number"
+						"type" : "string"
 					},
 					"name" : {
 						"type" : "string"
@@ -378,7 +375,7 @@
 			"nullable" : true,
 			"properties" : {
 				"id" : {
-					"type" : "number"
+					"type" : "string"
 				},
 				"_id" : {
 					"type" : "string"
@@ -392,7 +389,8 @@
 			"type" : "boolean"
 		},
 		"shippingClassId" : {
-			"type" : "number"
+			"type" : "number",
+			"nullable" : true
 		},
 		"groupedProducts" : {
 			"type" : "array",
