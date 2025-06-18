@@ -23,7 +23,7 @@ class ProductGenerator extends GeneratorBase {
 	protected string $schema_name = 'product';
 
 	/**
-	 * Transform product data to schema format
+	 * Transform product data to the schema format
 	 *
 	 * @since 1.9.44
 	 *
@@ -35,18 +35,8 @@ class ProductGenerator extends GeneratorBase {
 
 		$base_fields = $this->get_base_fields();
 
-		// Prepare tax class data.
-		$tax_class = NULL;
-		if ( ! empty( $product['tax_class'] ) ) {
-			$tax_class = [
-				'_id'  => $product['tax_class'],
-				'slug' => $product['tax_class'],
-				'name' => ucfirst( $product['tax_class'] ) . ' Rate'
-			];
-		}
-
 		return array_merge( $base_fields, [
-			// Product specific fields.
+			// Product-specific fields.
 			'id'                     => (string) $product['id'],
 			'uid'                    => $product['uid'] ?? NULL,
 			'itemType'               => $product['itemType'] ?? 'product',
@@ -117,7 +107,7 @@ class ProductGenerator extends GeneratorBase {
 			'downloadLimit'          => $product['download_limit'] ?? NULL,
 			'downloadExpiry'         => $product['download_expiry'] ?? NULL,
 			'shippingClass'          => $this->prepare_ids( $product['shipping_class'] ?? NULL ),
-			'taxClass'               => $tax_class,
+			'taxClass'               => $this->prepare_tax_class( $product['tax_class'] ?? NULL ),
 			'groupedProducts'        => $this->prepare_ids( $product['grouped_products'] ?? NULL ),
 			'upsells'                => $this->prepare_ids( $product['upsells'] ?? NULL ),
 			'crossSells'             => $this->prepare_ids( $product['cross_sells'] ?? NULL ),
@@ -130,23 +120,23 @@ class ProductGenerator extends GeneratorBase {
 			'miInventories'          => $this->prepare_ids( $product['mi_inventories'] ?? NULL ),
 			'inventoryStock'         => ( isset( $product['inventory_stock'] ) && ! $this->is_null_value( $product['inventory_stock'] ) ) ? (int) $product['inventory_stock'] : NULL,
 			'inventoryMainStock'     => ( isset( $product['inventory_main_stock'] ) && ! $this->is_null_value( $product['inventory_main_stock'] ) ) ? (int) $product['inventory_main_stock'] : NULL,
-			'multiInventory'         => (bool) ( $product['multi_inventory'] ?? FALSE ),
+			'multiInventory'         => $this->string_to_bool( $product['multi_inventory'] ?? FALSE ),
 			'inventorySortingMode'   => $product['inventory_sorting_mode'] ?? NULL,
 			'inventoryIteration'     => $product['inventory_iteration'] ?? NULL,
-			'expirableInventories'   => (bool) ( $product['expirable_inventories'] ?? FALSE ),
-			'pricePerInventory'      => (bool) ( $product['price_per_inventory'] ?? FALSE ),
-			'selectableInventories'  => (bool) ( $product['selectable_inventories'] ?? FALSE ),
+			'expirableInventories'   => $this->string_to_bool( $product['expirable_inventories'] ?? FALSE ),
+			'pricePerInventory'      => $this->string_to_bool( $product['price_per_inventory'] ?? FALSE ),
+			'selectableInventories'  => $this->string_to_bool( $product['selectable_inventories'] ?? FALSE ),
 			'inventorySelectionMode' => $product['selectable_inventories_mode'] ?? NULL,
 			'linkedBoms'             => $this->prepare_ids( $product['linked_boms'] ?? NULL ),
 			'isBom'                  => (bool) ( $product['is_bom'] ?? FALSE ),
-			'bomSellable'            => (bool) ( $product['bom_sellable'] ?? FALSE ),
+			'bomSellable'            => $this->string_to_bool( $product['bom_sellable'] ?? FALSE ),
 			'minimumThreshold'       => (float) ( $product['minimum_threshold'] ?? 0 ),
 			'availableToPurchase'    => (float) ( $product['available_to_purchase'] ?? 0 ),
 			'sellingPriority'        => (int) ( $product['selling_priority'] ?? 0 ),
 			'isUsedBom'              => (bool) ( $product['is_used_bom'] ?? FALSE ),
 			'calculatedStock'        => $product['calculated_stock'] ?? NULL,
 			'bomStock'               => $product['bom_stock'] ?? NULL,
-			'syncPurchasePrice'      => (bool) ( $product['sync_purchase_price'] ?? FALSE ),
+			'syncPurchasePrice'      => $this->string_to_bool( $product['sync_purchase_price'] ?? FALSE ),
 			'calcBackOrders'         => (int) ( $product['calc_back_orders'] ?? 0 ),
 			'calcStockIndicator'     => $product['calc_stock_indicator'] ?? NULL,
 			'calcWillLast'           => $product['calc_will_last'] ?? NULL,
@@ -177,12 +167,10 @@ class ProductGenerator extends GeneratorBase {
 
 		return array_map( function ( $tax ) {
 
-			return [
-				'id'   => (int) $tax['id'],
+			return array_merge( $this->prepare_ids( $tax['id'] ?? 0 ), [
 				'name' => $tax['name'],
 				'slug' => $tax['slug'],
-				'_id'  => NULL,
-			];
+			] );
 
 		}, $taxonomies );
 	}
@@ -200,23 +188,19 @@ class ProductGenerator extends GeneratorBase {
 
 		return array_map( function ( $attr ) {
 
-			return [
-				'_id'       => NULL,
-				'id'        => (int) $attr['id'],
+			return array_merge( $this->prepare_ids( $attr['id'] ?? 0 ), [
 				'name'      => $attr['name'],
 				'options'   => array_map( function ( $option_name = '', $option_id = NULL ) {
 
-					return [
-						'_id'  => NULL,
-						'id'   => $option_id,
+					return array_merge( $this->prepare_ids( $option_id ?? 0 ), [
 						'name' => $option_name,
-					];
+					] );
 
 				}, $attr['options'] ?? [], $attr['option_ids'] ?? [] ),
 				'position'  => (int) ( $attr['position'] ?? 0 ),
 				'visible'   => (bool) ( $attr['visible'] ?? TRUE ),
 				'variation' => (bool) ( $attr['variation'] ?? FALSE ),
-			];
+			]  );
 
 		}, $attributes );
 	}
@@ -236,11 +220,9 @@ class ProductGenerator extends GeneratorBase {
 			return NULL;
 		}
 
-		return [
-			'id'        => (int) $image['id'],
+		return array_merge( $this->prepare_ids( $image['id'] ?? 0 ), [
 			'src'       => $image['src'],
-			'alt'       => $image['alt'] ?? '',
-			'_id'       => NULL,
+			'alt'       => $image['alt'] ?? '',		
 			'uid'       => NULL,
 			'file'      => NULL,
 			'name'      => $image['name'] ?? '',
@@ -250,7 +232,7 @@ class ProductGenerator extends GeneratorBase {
 			'deleted'   => FALSE,
 			'itemType'  => 'media',
 			'trash'     => FALSE,
-		];
+		] );
 
 	}
 

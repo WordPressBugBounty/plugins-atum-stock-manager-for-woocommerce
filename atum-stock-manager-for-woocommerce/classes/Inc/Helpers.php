@@ -1748,7 +1748,9 @@ final class Helpers {
 				data-multiple="false" data-selected="" data-minimum_input_length="1" style="width: 165px">
 				<?php if ( $selected ) :
 					$supplier = get_post( $selected ); ?>
-					<option value="<?php echo esc_attr( $selected ) ?>" selected="selected"><?php echo esc_attr( $supplier->post_title ?: __( '(no title)', ATUM_TEXT_DOMAIN ) ) ?></option>
+					<?php if ( $supplier instanceof \WP_Post ) : ?>
+						<option value="<?php echo esc_attr( $selected ) ?>" selected="selected"><?php echo esc_attr( $supplier->post_title ?: __( '(no title)', ATUM_TEXT_DOMAIN ) ) ?></option>
+					<?php endif; ?>
 				<?php endif; ?>
 			</select>
 
@@ -3580,7 +3582,7 @@ final class Helpers {
 		$join_query      = '';
 		$join_clauses    = [];
 
-		// When searching variations we should include the parent's meta table for searches.
+		// When searching variations, we should include the parent's meta table for searches.
 		if ( $include_variations ) {
 			$join_clauses[] = "LEFT JOIN $wpdb->wc_product_meta_lookup parent_wc_product_meta_lookup
 				ON (posts.post_type = 'product_variation' AND parent_wc_product_meta_lookup.product_id = posts.post_parent)";
@@ -3588,9 +3590,16 @@ final class Helpers {
 				ON (posts.post_type = 'product_variation' AND parent_apd.product_id = posts.post_parent)";
 		}
 
-		$post_statuses = apply_filters( 'atum/search_products/post_statuses', Globals::get_queryable_product_statuses() );
+		// Allow choosing the searchable statuses from the ATUM Settings.
+		$searchable_statuses = self::get_option( 'searchable_statuses', Globals::get_queryable_product_statuses() );
 
-		// See if search term contains OR keywords.
+		if ( array_key_exists( 'options', $searchable_statuses ) ) {
+			$searchable_statuses = array_keys( $searchable_statuses['options'], 'yes' );
+		}
+
+		$post_statuses = apply_filters( 'atum/search_products/post_statuses', $searchable_statuses );
+
+		// See if the search term contains OR keywords.
 		$term_groups    = stristr( $term, ' or ' ) ? preg_split( '/\s+or\s+/i', $term ) : [ $term ];
 		$search_queries = [];
 
@@ -3648,6 +3657,12 @@ final class Helpers {
 			$join_query = implode( "\n", apply_filters( 'atum/search_products/join_clauses', $join_clauses, $term, $type, $include_variations, $statuses, $limit, $include, $exclude ) );
 		}
 
+		// For ID searches.
+		if ( is_numeric( $term ) ) {
+			$post_id          = absint( $term );
+			$search_queries[] = "( posts.ID = $post_id OR posts.post_parent = $post_id ) ";
+		}
+
 		if ( ! empty( $search_queries ) ) {
 			$where_clauses[] = '(' . implode( ') OR (', $search_queries ) . ') ';
 		}
@@ -3701,25 +3716,7 @@ final class Helpers {
 		" );
 		// phpcs:enable
 
-		$product_ids = wp_parse_id_list( array_merge( wp_list_pluck( $search_results, 'product_id' ), wp_list_pluck( $search_results, 'parent_id' ) ) );
-
-		if ( is_numeric( $term ) ) {
-
-			$post_id   = absint( $term );
-			$post_type = get_post_type( $post_id );
-
-			if ( 'product_variation' === $post_type && $include_variations ) {
-				$product_ids[] = $post_id;
-			}
-			elseif ( 'product' === $post_type ) {
-				$product_ids[] = $post_id;
-			}
-
-			$product_ids[] = wp_get_post_parent_id( $post_id );
-
-		}
-
-		return wp_parse_id_list( $product_ids );
+		return wp_parse_id_list( array_merge( wp_list_pluck( $search_results, 'product_id' ), wp_list_pluck( $search_results, 'parent_id' ) ) );
 
 	}
 

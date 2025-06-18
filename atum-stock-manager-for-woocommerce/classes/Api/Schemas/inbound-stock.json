@@ -12,12 +12,9 @@
 	],
 	"properties" : {
 		"id" : {
-			"type" : "number"
-		},
-		"name" : {
 			"type" : "string"
 		},
-		"itemType" : {
+		"name" : {
 			"type" : "string"
 		},
 		"type" : {
@@ -25,23 +22,6 @@
 		},
 		"sku" : {
 			"type" : "string"
-		},
-		"image" : {
-			"type" : "object",
-			"properties" : {
-				"id" : {
-					"type" : "number"
-				},
-				"src" : {
-					"type" : "string"
-				},
-				"alt" : {
-					"type" : "string"
-				},
-				"title" : {
-					"type" : "string"
-				}
-			}
 		},
 		"dateOrdered" : {
 			"type" : "string",
@@ -51,28 +31,13 @@
 			"type" : "string",
 			"format" : "date-time"
 		},
-		"dateOnSaleFromGMT" : {
-			"type" : "string",
-			"format" : "date-time"
-		},
 		"dateExpected" : {
 			"type" : "string",
 			"format" : "date-time"
 		},
-		"dateExpectedGMT" : {
+		"dateExpectedGmt" : {
 			"type" : "string",
 			"format" : "date-time"
-		},
-		"item" : {
-			"type" : "object",
-			"properties" : {
-				"id" : {
-					"type" : "number"
-				},
-				"_id" : {
-					"type" : "string"
-				}
-			}
 		},
 		"inboundStock" : {
 			"type" : "number"

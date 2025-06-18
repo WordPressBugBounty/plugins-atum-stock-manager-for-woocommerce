@@ -84,66 +84,41 @@ class PurchaseOrderGenerator extends GeneratorBase {
 		return array_map( function ( $item ) {
 
 			return [
-				'_id'         => isset($item['id']) ? 'purchase-order-item:' . $this->generate_uuid() : null,
-				'id'          => (int) $item['id'],
+				'_id'         => isset( $item['id'] ) ? 'purchase-order-item:' . $this->generate_uuid() : NULL,
+				'id'          => (string) $item['id'],
 				'name'        => $item['name'],
 				'quantity'    => (int) $item['quantity'],
 				'subtotal'    => (float) $item['subtotal'],
 				'subtotalTax' => (float) $item['subtotal_tax'],
 				'total'       => (float) $item['total'],
 				'totalTax'    => (float) $item['total_tax'],
-				'sku'         => $item['sku'] ?? null,
-				'price'       => (float) ($item['price'] ?? 0),
-				'product'     => null,
-				'variation'   => null,
+				'sku'         => $item['sku'] ?? NULL,
+				'price'       => (float) ( $item['price'] ?? 0 ),
+				'product'     => NULL,
+				'variation'   => NULL,
 				'inventories' => [],
 				'bomItems'    => [],
-				'taxClass'    => isset($item['tax_class']) ? $this->prepare_tax_class($item['tax_class']) : null,
+				'taxClass'    => $this->prepare_tax_class( $item['tax_class'] ?? NULL ),
 				'taxes'       => [],
-				'order'       => [
-					'_id'      => null,
+				/*'order'       => [
 					'itemType' => 'purchase-order',
-					'id'       => isset($item['product_id']) ? (int) $item['product_id'] : null,
-					'uid'      => null
-				],
+					'id'       => $this->prepare_ids( $item['product_id'] ?? NULL ),
+					'uid'      => NULL,
+				],*/
+				// TODO: THIS MUST BE FIXED FOR ALL ORDERS
 				'stock'       => [
-					'action'        => 'reduceStock',
-					'changedStock'  => isset($item['stock_changed']) && $item['stock_changed'] === 'yes',
-					'quantity'      => (int) $item['quantity']
+					'action'       => 'reduceStock',
+					'changedStock' => isset( $item['stock_changed'] ) && $item['stock_changed'] === 'yes',
+					'quantity'     => (int) $item['quantity'],
 				],
 				'metaData'    => $this->prepare_meta_data( $item['meta_data'] ?? [] ),
 				'_deleted'    => FALSE,
 				'deleted'     => FALSE,
-				'parent'      => null
+				'parent'      => NULL,
 			];
 
 		}, $line_items );
 
-	}
-
-	/**
-	 * Prepare tax class data
-	 *
-	 * @since 1.9.44
-	 *
-	 * @param string $tax_class Tax class string.
-	 *
-	 * @return array|null Prepared tax class data.
-	 */
-	private function prepare_tax_class( $tax_class = '' ): ?array {
-		if (empty($tax_class)) {
-			return [
-				'slug'     => 'standard',
-				'_id'      => 'tax-class:' . $this->generate_uuid(),
-				'itemType' => 'tax-class'
-			];
-		}
-		
-		return [
-			'slug'     => $tax_class,
-			'_id'      => 'tax-class:' . $this->generate_uuid(),
-			'itemType' => 'tax-class'
-		];
 	}
 
 	/**
@@ -161,7 +136,7 @@ class PurchaseOrderGenerator extends GeneratorBase {
 
 			return [
 				'_id'              => 'purchase-order-tax:' . $this->generate_uuid(),
-				'id'               => (int) $tax['id'],
+				'id'               => (string) $tax['id'],
 				'rateCode'         => $tax['rate_code'] ?? '',
 				'rateId'           => (string) ( $tax['rate_id'] ?? '' ),
 				'label'            => $tax['label'] ?? '',
@@ -190,7 +165,7 @@ class PurchaseOrderGenerator extends GeneratorBase {
 
 			return [
 				'_id'      => 'purchase-order-shipping:' . $this->generate_uuid(),
-				'id'       => (int) $shipping['id'],
+				'id'       => (string) $shipping['id'],
 				'name'     => $shipping['method_title'] ?? '',
 				'total'    => (float) ( $shipping['total'] ?? 0 ),
 				'totalTax' => (float) ( $shipping['total_tax'] ?? 0 ),
@@ -216,7 +191,7 @@ class PurchaseOrderGenerator extends GeneratorBase {
 
 			return [
 				'_id'      => 'purchase-order-fee:' . $this->generate_uuid(),
-				'id'       => (int) $fee['id'],
+				'id'       => (string) $fee['id'],
 				'name'     => $fee['name'] ?? '',
 				'total'    => (float) ( $fee['total'] ?? 0 ),
 				'totalTax' => (float) ( $fee['total_tax'] ?? 0 ),

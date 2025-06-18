@@ -43,37 +43,16 @@ class VariationGenerator extends GeneratorBase {
 					'_id'  => NULL,
 					'id'   => NULL,
 				],
-				'_id'    => NULL,
-				'id'     => (int) $attr['id'],
+				$this->prepare_ids( $attr['id'] ?? NULL ),
 			];
 
 		}, $variation['attributes'] ?? [] );
-
-		// Prepare tax class data.
-		$tax_class = NULL;
-		if ( ! empty( $variation['tax_class'] ) ) {
-			$tax_class = [
-				'_id'  => $variation['tax_class'],
-				'slug' => $variation['tax_class'],
-				'name' => ucfirst( $variation['tax_class'] ) . ' Rate'
-			];
-		}
-
-		// Prepare meta data.
-		$meta_data = array_map( function ( $meta ) {
-
-			return [
-				'key'   => $meta['key'],
-				'value' => (string) $meta['value']
-			];
-
-		}, $variation['meta_data'] ?? [] );
 
 		// Prepare image data
 		$image = NULL;
 		if ( ! empty( $variation['image'] ) ) {
 			$image = [
-				'id'    => (int) ($variation['image']['id'] ?? 0),
+				'id'    => ! empty( $variation['image']['id'] ) ? (string) $variation['image']['id'] : NULL,
 				'src'   => $variation['image']['src'] ?? '',
 				'title' => $variation['image']['title'] ?? '',
 				'alt'   => $variation['image']['alt'] ?? ''
@@ -81,7 +60,7 @@ class VariationGenerator extends GeneratorBase {
 		}
 
 		return array_merge( $this->get_base_fields(), [
-			'id'                     => (int) $variation['id'],
+			'id'                     => (string) $variation['id'],
 			'uid'                    => $variation['global_unique_id'] ?? NULL,
 			'parent'                 => $this->prepare_ids( $variation['parent_id'] ?? NULL ),
 			'parentType'             => NULL,
@@ -108,7 +87,7 @@ class VariationGenerator extends GeneratorBase {
 			'virtual'                => (bool) ( $variation['virtual'] ?? FALSE ),
 			'downloadable'           => (bool) ( $variation['downloadable'] ?? FALSE ),
 			'taxStatus'              => $variation['tax_status'] ?? 'taxable',
-			'taxClass'               => $tax_class,
+			'taxClass'               => $this->prepare_tax_class( $variation['tax_class'] ?? NULL ),
 			'weight'                 => (float) ( $variation['weight'] ?? 0 ),
 			'dimensions'             => [
 				'length' => (float) ( $variation['dimensions']['length'] ?? 0 ),
@@ -149,24 +128,24 @@ class VariationGenerator extends GeneratorBase {
 			'miInventories'          => $this->prepare_ids( $variation['mi_inventories'] ?? NULL ),
 			'inventoryStock'         => ( isset( $variation['inventory_stock'] ) && ! $this->is_null_value( $variation['inventory_stock'] ) ) ? (int) $variation['inventory_stock'] : NULL,
 			'inventoryMainStock'     => ( isset( $variation['inventory_main_stock'] ) && ! $this->is_null_value( $variation['inventory_main_stock'] ) ) ? (int) $variation['inventory_main_stock'] : NULL,
-			'multiInventory'         => (bool) ( $variation['multi_inventory'] ?? FALSE ),
+			'multiInventory'         => $this->string_to_bool( $variation['multi_inventory'] ?? FALSE ),
 			'inventorySortingMode'   => $variation['inventory_sorting_mode'] ?? NULL,
 			'inventoryIteration'     => $variation['inventory_iteration'] ?? NULL,
-			'expirableInventories'   => (bool) ( $variation['expirable_inventories'] ?? FALSE ),
-			'pricePerInventory'      => (bool) ( $variation['price_per_inventory'] ?? FALSE ),
-			'selectableInventories'  => (bool) ( $variation['selectable_inventories'] ?? FALSE ),
+			'expirableInventories'   => $this->string_to_bool( $variation['expirable_inventories'] ?? FALSE ),
+			'pricePerInventory'      => $this->string_to_bool( $variation['price_per_inventory'] ?? FALSE ),
+			'selectableInventories'  => $this->string_to_bool( $variation['selectable_inventories'] ?? FALSE ),
 			'inventorySelectionMode' => $variation['selectable_inventories_mode'] ?? NULL,
 			'atumLocations'          => [],
 			'hasLocation'            => FALSE,
 			'categories'             => [],
 			'linkedBoms'             => $this->prepare_ids( $variation['linked_boms'] ?? NULL ),
-			'syncPurchasePrice'      => (bool) ( $variation['sync_purchase_price'] ?? FALSE ),
+			'syncPurchasePrice'      => $this->string_to_bool( $variation['sync_purchase_price'] ?? FALSE ),
 			'isBom'                  => (bool) ( $variation['is_bom'] ?? FALSE ),
 			'isUsedBom'              => FALSE,
-			'bomSellable'            => (bool) ( $variation['bom_sellable'] ?? FALSE ),
+			'bomSellable'            => $this->string_to_bool( $variation['bom_sellable'] ?? FALSE ),
 			'calculatedStock'        => $variation['calculated_stock'] ?? NULL,
-			'bomStock'               => $product['bom_stock'] ?? NULL,
-			'metaData'               => $meta_data,
+			'bomStock'               => $variation['bom_stock'] ?? NULL,
+			'metaData'               => $$this->prepare_meta_data( $product['meta_data'] ?? [] ),
 			'dateCreated'            => $variation['date_created'] ?? NULL,
 			'dateCreatedGMT'         => $variation['date_created_gmt'] ?? NULL,
 			'dateModified'           => $variation['date_modified'] ?? NULL,

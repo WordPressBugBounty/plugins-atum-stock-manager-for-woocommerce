@@ -12,7 +12,7 @@
 	],
 	"properties" : {
 		"id" : {
-			"type" : "number"
+			"type" : "string"
 		},
 		"uid" : {
 			"type" : "string",
@@ -86,6 +86,16 @@
 			"type" : "string",
 			"nullable" : true
 		},
+		"dateCompleted" : {
+			"type" : "string",
+			"nullable" : true,
+			"format" : "date-time"
+		},
+		"dateCompletedGMT" : {
+			"type" : "string",
+			"nullable" : true,
+			"format" : "date-time"
+		},
 		"status" : {
 			"type" : "string"
 		},
@@ -118,7 +128,7 @@
 				"type" : "object",
 				"properties" : {
 					"id" : {
-						"type" : "number"
+						"type" : "string"
 					},
 					"name" : {
 						"type" : "string"
@@ -130,7 +140,7 @@
 						"type" : "object",
 						"properties" : {
 							"id" : {
-								"type" : "number"
+								"type" : "string"
 							},
 							"_id" : {
 								"type" : "string",
@@ -150,14 +160,15 @@
 					},
 					"taxClass" : {
 						"type" : "object",
+						"nullable" : true,
 						"properties" : {
+							"_id"   : {
+								"type" : "string"
+							},
 							"slug" : {
 								"type" : "string"
 							},
-							"_id" : {
-								"type" : "string"
-							},
-							"itemType" : {
+							"name" : {
 								"type" : "string"
 							}
 						}
@@ -203,7 +214,7 @@
 							"type" : "object",
 							"properties" : {
 								"id" : {
-									"type" : "number"
+									"type" : "string"
 								},
 								"key" : {
 									"type" : "string"
@@ -237,7 +248,7 @@
 				"type" : "object",
 				"properties" : {
 					"id" : {
-						"type" : "number"
+						"type" : "string"
 					},
 					"name" : {
 						"type" : "string"
@@ -254,7 +265,7 @@
 				"type" : "object",
 				"properties" : {
 					"id" : {
-						"type" : "number"
+						"type" : "string"
 					},
 					"methodTitle" : {
 						"type" : "string"
@@ -271,7 +282,7 @@
 				"type" : "object",
 				"properties" : {
 					"id" : {
-						"type" : "number"
+						"type" : "string"
 					},
 					"rateCode" : {
 						"type" : "string"
@@ -288,7 +299,7 @@
 				"type" : "object",
 				"properties" : {
 					"id" : {
-						"type" : "number"
+						"type" : "string"
 					},
 					"content" : {
 						"type" : "string"
@@ -306,7 +317,7 @@
 				"type" : "object",
 				"properties" : {
 					"id" : {
-						"type" : "number"
+						"type" : "string"
 					},
 					"key" : {
 						"type" : "string"

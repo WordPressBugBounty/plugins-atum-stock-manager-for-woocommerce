@@ -54,9 +54,11 @@ class FullExportController extends \WC_REST_Controller {
 	const DUMP_CONFIG_TRANSIENT = 'api_run_full_export_dump_config';
 
 	/**
-	 * Cloud function to send notification to the App user when the full export is completed.
+	 * Cloud function to send a notification to the App user when the full export is completed.
 	 */
 	const COMPLETED_FULL_EXPORT_NOTICE_URL = 'https://us-central1-atum-app.cloudfunctions.net/completedFullExport';
+
+	const DEBUG_MODE = FALSE;
 
 	/**
 	 * Register the routes for tools
@@ -691,6 +693,7 @@ class FullExportController extends \WC_REST_Controller {
 				foreach ( $endpoint as $sub_key => $sub_ep ) {
 
 					$found_files = glob( $upload_dir . self::get_file_name( $sub_ep, $schema )  . '*.json' );
+					natsort( $found_files );
 
 					if ( $found_files ) {
 						$files[ $schema ][ $sub_key ] = $found_files;
@@ -702,6 +705,7 @@ class FullExportController extends \WC_REST_Controller {
 			else {
 
 				$found_files = glob( $upload_dir . self::get_file_name( $endpoint, $schema )  . '*.json' );
+				natsort( $found_files );
 
 				if ( $found_files ) {
 					$files[ $schema ] = $found_files;
@@ -720,7 +724,7 @@ class FullExportController extends \WC_REST_Controller {
 	}
 
 	/**
-	 * Generate a SQL `dump` file with the ATUM App's SQLite structure
+	 * Generate an SQL `dump` file with the ATUM App's SQLite structure
 	 *
 	 * @since 1.9.44
 	 *
@@ -769,8 +773,9 @@ class FullExportController extends \WC_REST_Controller {
 		// TODO: SHOULD WE DUMP EVERY SINGLE FILE SEPARATELY IN A CRON TO AVOID CRASHES (FOR CASES OF ENTITIES WITH MANY PAGES)?
 		foreach ( $files as $file ) {
 
-			// In the case there are multiple exports of the same endpoint with distinct filters or sub-endpoints.
+			// In case there are multiple exports of the same endpoint with distinct filters or sub-endpoints.
 			$file = is_array( $file ) ? Helpers::flat_array( $file ) : [ $file ];
+			natsort( $file );
 
 			foreach ( $file as $f ) {
 
@@ -798,7 +803,7 @@ class FullExportController extends \WC_REST_Controller {
 							$generator = new Generator(
 								$json['schema'],
 								$dump_config,
-								array( $json['page'], $json['total_pages'] ),
+								array( $json['page'], $json['total_pages'] )
 							);
 
 							Helpers::adjust_long_process_settings();
@@ -806,7 +811,7 @@ class FullExportController extends \WC_REST_Controller {
 							// Generate SQL statements for the specific endpoint.
 							$dump_data .= $generator->generate( $json );
 
-						} catch ( \Exception $e ) {
+						} catch ( \Throwable $e ) {
 
 							$dump_error_msg =  $e->getMessage();
 							error_log( 'ATUM Full export error: ' . $dump_error_msg );
@@ -865,13 +870,25 @@ class FullExportController extends \WC_REST_Controller {
 	 *
 	 * @return bool
 	 */
-	private static function are_there_pending_exports() {
+	public static function are_there_pending_exports( $check_transients = TRUE ) {
 
 		global $wpdb;
 
-		$transient_name = '_transient_' . AtumCache::get_transient_key( self::EXPORTED_ENDPOINTS_TRANSIENT );
-		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-		return ! empty( $wpdb->get_col( "SELECT option_id FROM $wpdb->options WHERE option_name LIKE '{$transient_name}%'" ) );
+		$pending_transients = [];
+
+		if ( $check_transients ) {
+			$transient_name = '_transient_' . AtumCache::get_transient_key( self::EXPORTED_ENDPOINTS_TRANSIENT );
+			// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			$pending_transients = $wpdb->get_col( "SELECT option_id FROM $wpdb->options WHERE option_name LIKE '{$transient_name}%'" );
+		}
+
+		$pending_actions = $wpdb->get_col( $wpdb->prepare( "
+			SELECT action_id FROM {$wpdb->prefix}actionscheduler_actions 
+			WHERE status IN (%s, %s)
+			AND ( hook LIKE 'atum_api_dump_endpoint%' OR hook LIKE 'atum_api_export_endpoint_%' )
+		", \ActionScheduler_Store::STATUS_PENDING, \ActionScheduler_Store::STATUS_RUNNING ) );
+
+		return ! empty( $pending_transients ) && ! empty( $pending_actions );
 
 	}
 
@@ -1050,7 +1067,7 @@ class FullExportController extends \WC_REST_Controller {
 
 				foreach ( $endpoint as $sub_key => $sub_ep ) {
 
-					AtumCache::set_transient( $exported_endpoint_transient_keys[ "{$key}.{$sub_key}" ], $sub_ep, DAY_IN_SECONDS, TRUE );
+					AtumCache::set_transient( $exported_endpoint_transient_keys[ "{$key}.{$sub_key}" ], $sub_ep, WEEK_IN_SECONDS, TRUE );
 
 					$hook_name = "atum_api_export_endpoint_{$key}_{$sub_key}";
 					$hook_args = [ $sub_ep, self::get_admin_user(), $params, 1, $format, $user_app_id ];
@@ -1071,7 +1088,7 @@ class FullExportController extends \WC_REST_Controller {
 			// Non-nested endpoints.
 			else {
 
-				AtumCache::set_transient( $exported_endpoint_transient_keys[ $key ], $endpoint, DAY_IN_SECONDS, TRUE );
+				AtumCache::set_transient( $exported_endpoint_transient_keys[ $key ], $endpoint, WEEK_IN_SECONDS, TRUE );
 
 				$hook_name = "atum_api_export_endpoint_$key";
 				$hook_args = [ $endpoint, self::get_admin_user(), $params, 1, $format, $user_app_id ];
@@ -1301,7 +1318,7 @@ class FullExportController extends \WC_REST_Controller {
 							}
 	
 							// Re-add the endpoint transient again because is not fully exported yet.
-							AtumCache::set_transient( $pending_endpoint_transient_key, $endpoint, DAY_IN_SECONDS, TRUE );
+							AtumCache::set_transient( $pending_endpoint_transient_key, $endpoint, WEEK_IN_SECONDS, TRUE );
 							$has_missing_data = TRUE; // Avoid removing the transient below.
 	
 						}
@@ -1368,7 +1385,7 @@ class FullExportController extends \WC_REST_Controller {
 				self::notify_subscriber( $user_id );
 			}
 
-		} catch ( \Exception $e ) {
+		} catch ( \Throwable $e ) {
 
 			error_log( 'ATUM Error: ' . $e->getMessage() );
 
@@ -1385,7 +1402,7 @@ class FullExportController extends \WC_REST_Controller {
 	 *
 	 * @return false|string
 	 */
-	private static function find_endpoint_schema( $endpoint ) {
+	public static function find_endpoint_schema( $endpoint ) {
 
 		$exportable_endpoints = AtumApi::get_exportable_endpoints();
 
@@ -1542,7 +1559,7 @@ class FullExportController extends \WC_REST_Controller {
 	 *
 	 * @return string
 	 */
-	private static function get_file_name( $endpoint = '', $schema = '', $params = '' ) {
+	public static function get_file_name( $endpoint = '', $schema = '', $params = '' ) {
 
 		$name_parts = [
 			$schema,
@@ -1574,7 +1591,7 @@ class FullExportController extends \WC_REST_Controller {
 			$saved_subscribers[] = $subscriber_id;
 		}
 
-		AtumCache::set_transient( $transient_key, $saved_subscribers, 0, TRUE );
+		AtumCache::set_transient( $transient_key, $saved_subscribers, WEEK_IN_SECONDS, TRUE );
 
 	}
 
@@ -1621,7 +1638,7 @@ class FullExportController extends \WC_REST_Controller {
 				'storeAppSettings' => $store_app_settings,
 			);
 
-			AtumCache::set_transient( $transient_key, $dump_config, 0, TRUE );
+			AtumCache::set_transient( $transient_key, $dump_config, WEEK_IN_SECONDS, TRUE );
 
 		}
 
@@ -1636,9 +1653,9 @@ class FullExportController extends \WC_REST_Controller {
 	 *
 	 * @return int|bool
 	 */
-	private static function get_admin_user() {
+	public static function get_admin_user() {
 
-		// First get the current user and check if it's an admin.
+		// First, get the current user and check if it's an admin.
 		if ( current_user_can( 'manage_options' ) ) {
 			return get_current_user_id();
 		}

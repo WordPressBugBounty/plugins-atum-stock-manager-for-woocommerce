@@ -81,7 +81,7 @@ class AtumQueues {
 		// Add the sales calc recurring hook.
 		add_action( 'atum/cron_update_sales_calc_props', array( $this, 'action_update_last_sales_calc_props' ) );
 
-		// Add the tmp folders clean up hook.
+		// Add the tmp folders clean-up hook.
 		add_action( 'atum/clean_up_tmp_folders', array( $this, 'action_clean_up_tmp_folders' ) );
 
 		// Add the ATUM Queues async hooks listeners.

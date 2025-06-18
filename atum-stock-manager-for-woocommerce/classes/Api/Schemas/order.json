@@ -12,7 +12,7 @@
 	],
 	"properties" : {
 		"id"               : {
-			"type" : "number"
+			"type" : "string"
 		},
 		"slug"             : {
 			"type"     : "string",
@@ -55,7 +55,7 @@
 			"type"       : "object",
 			"properties" : {
 				"id"  : {
-					"type" : "number"
+					"type" : "string"
 				},
 				"_id" : {
 					"type"     : "string",
@@ -171,7 +171,7 @@
 				"type"       : "object",
 				"properties" : {
 					"id"          : {
-						"type" : "number"
+						"type" : "string"
 					},
 					"_id"         : {
 						"type" : "string"
@@ -182,13 +182,17 @@
 					"quantity"    : {
 						"type" : "number"
 					},
-					"taxClass"    : {
-						"type"       : "object",
+					"taxClass" : {
+						"type" : "object",
+						"nullable" : true,
 						"properties" : {
-							"id"  : {
-								"type" : "number"
+							"_id"   : {
+								"type" : "string"
 							},
-							"_id" : {
+							"slug" : {
+								"type" : "string"
+							},
+							"name" : {
 								"type" : "string"
 							}
 						}
@@ -228,7 +232,7 @@
 							"type" : "object",
 							"properties" : {
 								"id" : {
-									"type" : "number"
+									"type" : "string"
 								},
 								"key" : {
 									"type" : "string"
@@ -248,7 +252,7 @@
 							"type"       : "object",
 							"properties" : {
 								"id"       : {
-									"type" : "number"
+									"type" : "string"
 								},
 								"rate"     : {
 									"type" : "number"
@@ -266,7 +270,7 @@
 						"type"       : "object",
 						"properties" : {
 							"id"  : {
-								"type" : "number"
+								"type" : "string"
 							},
 							"_id" : {
 								"type" : "string"
@@ -277,7 +281,7 @@
 						"type"       : "object",
 						"properties" : {
 							"id"  : {
-								"type" : "number"
+								"type" : "string"
 							},
 							"_id" : {
 								"type" : "string"
@@ -288,7 +292,7 @@
 						"type"       : "object",
 						"properties" : {
 							"id"  : {
-								"type" : "number"
+								"type" : "string"
 							},
 							"_id" : {
 								"type" : "string"
@@ -299,7 +303,7 @@
 						"type"       : "object",
 						"properties" : {
 							"id"  : {
-								"type" : "number"
+								"type" : "string"
 							},
 							"_id" : {
 								"type" : "string"
@@ -312,7 +316,7 @@
 							"type"       : "object",
 							"properties" : {
 								"id"             : {
-									"type" : "number"
+									"type" : "string"
 								},
 								"_id"            : {
 									"type" : "string"
@@ -324,7 +328,7 @@
 									"type"       : "object",
 									"properties" : {
 										"id"  : {
-											"type" : "number"
+											"type" : "string"
 										},
 										"_id" : {
 											"type" : "string"
@@ -335,7 +339,7 @@
 									"type"       : "object",
 									"properties" : {
 										"id"  : {
-											"type" : "number"
+											"type" : "string"
 										},
 										"_id" : {
 											"type" : "string"
@@ -346,7 +350,7 @@
 									"type"       : "object",
 									"properties" : {
 										"id"  : {
-											"type" : "number"
+											"type" : "string"
 										},
 										"_id" : {
 											"type" : "string"
@@ -409,7 +413,7 @@
 				"type"       : "object",
 				"properties" : {
 					"id"        : {
-						"type" : "number"
+						"type" : "string"
 					},
 					"_id"       : {
 						"type" : "string"
@@ -417,13 +421,17 @@
 					"name"      : {
 						"type" : "string"
 					},
-					"taxClass"  : {
-						"type"       : "object",
+					"taxClass" : {
+						"type" : "object",
+						"nullable" : true,
 						"properties" : {
-							"id"  : {
-								"type" : "number"
+							"_id"   : {
+								"type" : "string"
 							},
-							"_id" : {
+							"slug" : {
+								"type" : "string"
+							},
+							"name" : {
 								"type" : "string"
 							}
 						}
@@ -449,7 +457,7 @@
 				],
 				"properties" : {
 					"id"       : {
-						"type" : "number"
+						"type" : "string"
 					},
 					"_id"      : {
 						"type" : "string"
@@ -477,7 +485,7 @@
 				],
 				"properties" : {
 					"id"               : {
-						"type" : "number"
+						"type" : "string"
 					},
 					"_id"              : {
 						"type" : "string"
@@ -495,20 +503,24 @@
 						"type"       : "object",
 						"properties" : {
 							"id"  : {
-								"type" : "number"
+								"type" : "string"
 							},
 							"_id" : {
 								"type" : "string"
 							}
 						}
 					},
-					"taxClass"         : {
-						"type"       : "object",
+					"taxClass" : {
+						"type" : "object",
+						"nullable" : true,
 						"properties" : {
-							"id"  : {
-								"type" : "number"
+							"_id"   : {
+								"type" : "string"
 							},
-							"_id" : {
+							"slug" : {
+								"type" : "string"
+							},
+							"name" : {
 								"type" : "string"
 							}
 						}
@@ -543,7 +555,7 @@
 				"type"       : "object",
 				"properties" : {
 					"id"     : {
-						"type" : "number"
+						"type" : "string"
 					},
 					"_id"    : {
 						"type"     : "string",
@@ -564,7 +576,7 @@
 				"type"       : "object",
 				"properties" : {
 					"id"             : {
-						"type" : "number"
+						"type" : "string"
 					},
 					"_id"            : {
 						"type" : "string"
@@ -595,7 +607,7 @@
 				"type"       : "object",
 				"properties" : {
 					"id"          : {
-						"type" : "number"
+						"type" : "string"
 					},
 					"_id"         : {
 						"type" : "string"
@@ -679,7 +691,7 @@
 				"type"       : "object",
 				"properties" : {
 					"id" : {
-						"type" : "number"
+						"type" : "string"
 					},
 					"key"   : {
 						"type" : "string"

@@ -43,18 +43,18 @@
 		},
 		"taxClass" : {
 			"type" : "object",
-			"properties": {
-				"slug": {
-					"type": "string"
+			"nullable" : true,
+			"properties" : {
+				"_id"   : {
+					"type" : "string"
 				},
-				"_id": {
-					"type": "string"
+				"slug" : {
+					"type" : "string"
+				},
+				"name" : {
+					"type" : "string"
 				}
 			}
-		},
-		"class" : {
-			"type" : "string",
-			"deprecated": true
 		},
 		"_id" : {
 			"type" : "string"
