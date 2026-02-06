@@ -5,7 +5,7 @@
  * @package         Atum
  * @subpackage      Inc
  * @author          BE REBEL - https://berebel.studio
- * @copyright       ©2025 Stock Management Labs™
+ * @copyright       ©2026 Stock Management Labs™
  *
  * @since           0.1.4
  */
@@ -499,10 +499,16 @@ final class Globals {
 	}
 
 	/**
-	 * @deprecated The method name was changed to get_order_type_id since version 1.9.36
+	 * Get the order post type from the order type id
+	 *
+	 * @since 1.9.51
+	 *
+	 * @param int $order_type_id
+	 *
+	 * @return string|FALSE
 	 */
-	public static function get_order_type_table_id( $type = 'shop_order' ) {
-		return self::get_order_type_id( $type );
+	public static function get_post_type_from_id( int $order_type_id ) {
+		return array_search( $order_type_id, self::$order_type_ids );
 	}
 
 	/**

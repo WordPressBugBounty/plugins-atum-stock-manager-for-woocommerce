@@ -5,7 +5,7 @@
  * @package         Atum\Components\AtumOrders
  * @subpackage      AtumOrders
  * @author          BE REBEL - https://berebel.studio
- * @copyright       ©2025 Stock Management Labs™
+ * @copyright       ©2026 Stock Management Labs™
  *
  * @since           1.2.4
  */
@@ -1083,7 +1083,7 @@ abstract class AtumOrderModel {
 	 ***************/
 
 	/**
-	 * Create a new ATUM Order in database
+	 * Create a new ATUM Order in the database
 	 *
 	 * @since 1.2.4
 	 */
@@ -1112,6 +1112,9 @@ abstract class AtumOrderModel {
 			if ( $id && ! is_wp_error( $id ) ) {
 				$this->id = $id;
 				$this->load_post();
+
+				do_action( 'atum/orders/after_order_created', $this );
+
 				$this->clear_caches();
 			}
 

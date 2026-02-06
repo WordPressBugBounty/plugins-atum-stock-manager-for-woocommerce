@@ -4,7 +4,7 @@
  *
  * @package     Atum\MetaBoxes
  * @author      BE REBEL - https://berebel.studio
- * @copyright   ©2025 Stock Management Labs™
+ * @copyright   ©2026 Stock Management Labs™
  *
  * @since       1.5.0
  */
@@ -337,7 +337,12 @@ class ProductDataMetaBoxes {
 			$wrapper_class = "$field_name form-row form-row-first";
 		}
 
-		$product        = Helpers::get_atum_product( $product_id );
+		$product = Helpers::get_atum_product( $product_id );
+
+		if ( ! Helpers::is_atum_product( $product ) ) {
+			return;
+		}
+
 		$purchase_price = $product->get_purchase_price();
 		$field_value    = '' === $purchase_price ? '' : (float) $purchase_price;
 		$price          = (float) $product->get_price();

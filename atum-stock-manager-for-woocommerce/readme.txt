@@ -3,11 +3,11 @@
 Contributors: stockmanagementlabs, salvamb, japiera, agimeno82, dorquium
 Tags: woocommerce stock management, suppliers, purchase orders, inbound stock, inventory logs
 Requires at least: 5.9
-Tested up to: 6.8.2
+Tested up to: 6.9.0
 Requires PHP: 7.4
 WC requires at least: 5.0
-WC tested up to: 10.1.1
-Stable tag: 1.9.50
+WC tested up to: 10.4.3
+Stable tag: 1.9.54.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -213,6 +213,104 @@ We officially support: WooCommerce Product Bundles, WooCommerce Subscriptions, W
 
 
 == Changelog ==
+
+---
+
+`1.9.54.1`
+
+*2026-02-03*
+
+**Changes**
+
+* Updated addons minimum versions.
+* Update wpml-config.xml.
+* Make sure an ATUM queue hook callback has been registered before scheduling it.
+* Changed addons alert color.
+* Refactoring.
+
+**Fixes**
+
+* Fixed issue with some list tables when being loaded as a report.
+
+---
+
+`1.9.54`
+
+*2026-01-19*
+
+**Features**
+
+* Added filter when excluding variable products from List Tables.
+* Added filter badges when an extra filter with values is active.
+* Added an action after an ATUM order gets created.
+
+**Fixes**
+
+* Fixed deprecated jQuery functions.
+* Fixed SASS deprecated warnings.
+
+---
+
+`1.9.53`
+
+*2025-11-25*
+
+**Changes**
+
+* Updated JS dependencies.
+
+**Fixes**
+
+* Released new version to fix wordpress.org issue with the updates.
+
+---
+
+`1.9.52.1`
+
+*2025-11-25*
+
+**Fixes**
+
+* Fixed site crash when using some specific PHP versions.
+
+---
+
+`1.9.52`
+
+*2025-11-25*
+
+**Features**
+
+* Added a dropdown to filter products by location to Stock Central.
+
+**Changes**
+
+* Removed full export endpoint.
+* Avoid issues when a product type is not supported by ATUM.
+
+**Fixes**
+
+* Fixed a deprecated notice for the block-ui enqueue.
+* Fixed undefined array key notices in some scenarios.
+
+---
+
+`1.9.51`
+
+*2025-10-14*
+
+**Features**
+
+* Added a new helper function to get the post type name from a give order type ID.
+
+**Changes**
+
+* Refactoring.
+* Dot not override the "search in" dropdown items if there are values.
+
+**Fixes**
+
+* Fixed PHP 8.4 compatibility.
 
 ---
 

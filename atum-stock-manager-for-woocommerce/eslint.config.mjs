@@ -2,7 +2,8 @@ import tsParser from '@typescript-eslint/parser';
 import pluginStylistic from '@stylistic/eslint-plugin';
 
 export default [
-    pluginStylistic.configs[ 'recommended-flat' ],
+    { ignores: [ 'node_modules/', 'assets/js/vendor/', 'assets/js/build/' ] },
+    pluginStylistic.configs[ 'recommended' ],
     {
         plugins: { '@stylistic': pluginStylistic },
         rules  : {
@@ -10,28 +11,31 @@ export default [
             '@stylistic/array-bracket-spacing'    : [ 'warn', 'always' ],
             '@stylistic/arrow-parens'             : [ 'warn', 'always' ],
             '@stylistic/computed-property-spacing': [ 'warn', 'always' ],
-            '@stylistic/indent'                   : [ 'warn', 4, {
-                VariableDeclarator: 'first',
-                MemberExpression  : 1,
-            } ],
+            '@stylistic/indent'                   : [
+                'warn',
+                4,
+                {
+                    VariableDeclarator: 'first',
+                    MemberExpression  : 1,
+                },
+            ],
             '@stylistic/indent-binary-ops': [ 'error', 'tab' ],
             '@stylistic/jsx-curly-spacing': [ 'warn', 'always' ],
-            '@stylistic/jsx-indent'       : [ 'error', 'tab', {
-                checkAttributes         : true,
-                indentLogicalExpressions: true,
-            } ],
-            '@stylistic/jsx-indent-props': [ 'error', 'tab' ],
-            '@stylistic/key-spacing'     : [ 'warn', {
-                singleLine: {
-                    beforeColon: false,
-                    afterColon : true,
+            '@stylistic/jsx-indent-props' : [ 'error', 'tab' ],
+            '@stylistic/key-spacing'      : [
+                'warn',
+                {
+                    singleLine: {
+                        beforeColon: false,
+                        afterColon : true,
+                    },
+                    multiLine: {
+                        beforeColon: false,
+                        afterColon : true,
+                        align      : 'colon',
+                    },
                 },
-                multiLine: {
-                    beforeColon: false,
-                    afterColon : true,
-                    align      : 'colon',
-                },
-            } ],
+            ],
             '@stylistic/member-delimiter-style': [
                 'warn',
                 {
@@ -61,16 +65,19 @@ export default [
                 { blankLine: 'always', prev: [ 'case', 'default' ], next: '*' },
                 { blankLine: 'always', prev: [ 'block', 'block-like' ], next: '*' },
             ],
-            '@stylistic/quotes': [ 'error', 'single', {
-                avoidEscape          : true,
-                allowTemplateLiterals: true,
-            } ],
+            '@stylistic/quotes': [
+                'error',
+                'single',
+                {
+                    avoidEscape          : true,
+                    allowTemplateLiterals: 'always',
+                },
+            ],
             '@stylistic/semi'                   : [ 'warn', 'always' ],
             '@stylistic/space-in-parens'        : [ 'warn', 'always' ],
             '@stylistic/switch-colon-spacing'   : 'warn',
             '@stylistic/template-curly-spacing' : [ 'warn', 'always' ],
             '@stylistic/type-annotation-spacing': 'off', // TODO...
-			
         },
     },
     // Parser setup

@@ -5,7 +5,7 @@
  *
  * @package     Components
  * @author      BE REBEL - https://berebel.studio
- * @copyright   ©2025 Stock Management Labs™
+ * @copyright   ©2026 Stock Management Labs™
  *
  * @since       1.5.8
  */
@@ -14,7 +14,7 @@ namespace Atum\Components;
 
 defined( 'ABSPATH' ) || die;
 
-use Atum\Api\Controllers\V3\FullExportController;
+//use Atum\Api\Controllers\V3\FullExportController;
 use Atum\Inc\Globals;
 use Atum\Inc\Helpers;
 use Atum\InventoryLogs\InventoryLogs;
@@ -48,10 +48,11 @@ class AtumQueues {
 			'time'     => 'midnight tomorrow',
 			'interval' => DAY_IN_SECONDS,
 		],
+		/* @deprecated ATUM Mobile App stuff
 		'atum/clean_up_tmp_folders'          => [
 			'time'     => 'now',
 			'interval' => WEEK_IN_SECONDS,
-		],
+		],*/
 	);
 
 	/**
@@ -81,8 +82,9 @@ class AtumQueues {
 		// Add the sales calc recurring hook.
 		add_action( 'atum/cron_update_sales_calc_props', array( $this, 'action_update_last_sales_calc_props' ) );
 
+		/* @deprecated ATUM Mobile App stuff */
 		// Add the tmp folders clean-up hook.
-		add_action( 'atum/clean_up_tmp_folders', array( $this, 'action_clean_up_tmp_folders' ) );
+		//add_action( 'atum/clean_up_tmp_folders', array( $this, 'action_clean_up_tmp_folders' ) );
 
 		// Add the ATUM Queues async hooks listeners.
 		add_action( 'wp_ajax_atum_async_hooks', array( $this, 'handle_async_hooks' ) );
@@ -204,11 +206,19 @@ class AtumQueues {
 
 			}
 
-			$next_scheduled_date = $wc_queue->get_next( $hook_name, $schedule_args, self::QUEUES_GROUP );
+			// Make sure the hook callback has been registered or will fail silently.
+			if ( has_action( $hook_name ) ) {
 
-			if ( is_null( $next_scheduled_date ) ) {
-				$wc_queue->cancel_all( $hook_name, $schedule_args, self::QUEUES_GROUP ); // Ensure all the actions are canceled before adding a new one.
-				$wc_queue->schedule_recurring( strtotime( $hook_data['time'] ), $hook_data['interval'], $hook_name, $schedule_args, self::QUEUES_GROUP );
+				$next_scheduled_date = $wc_queue->get_next( $hook_name, $schedule_args, self::QUEUES_GROUP );
+
+				if ( is_null( $next_scheduled_date ) ) {
+					$wc_queue->cancel_all( $hook_name, $schedule_args, self::QUEUES_GROUP ); // Ensure all the actions are canceled before adding a new one.
+					$wc_queue->schedule_recurring( strtotime( $hook_data['time'] ), $hook_data['interval'], $hook_name, $schedule_args, self::QUEUES_GROUP );
+				}
+
+			}
+			elseif ( defined( 'ATUM_DEBUG' ) && ATUM_DEBUG ) {
+				error_log( __METHOD__ . ": The ATUM queue action '$hook_name' was not found. Please make sure it's registered." );
 			}
 
 		}
@@ -358,8 +368,9 @@ class AtumQueues {
 	 * Clean up ATUM temporary folders
 	 *
 	 * @since 1.9.19
+	 * @deprecated ATUM Mobile App stuff
 	 */
-	public function action_clean_up_tmp_folders() {
+	/*public function action_clean_up_tmp_folders() {
 
 		// Clean up any old full API exportation older than 7 days.
 		$full_export_dir = FullExportController::get_full_export_upload_dir();
@@ -387,7 +398,7 @@ class AtumQueues {
 
 		}
 
-	}
+	}*/
 
 	/**
 	 * Defer an action to run one time on the WP's 'shutdown' action.
