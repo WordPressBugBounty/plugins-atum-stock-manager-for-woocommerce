@@ -1854,19 +1854,25 @@ final class Helpers {
 			$post_type = get_post_type( $atum_order_id );
 		}
 
+		$has_cache = FALSE;
+
 		// Use cache to avoid reading order data every time.
-		// TODO: THIS NEEDS TO BE TESTED DEEPLY AS IT COULD CAUSE ISSUES.
-		$cache_key  = AtumCache::get_cache_key( 'get_atum_order_model', [ $atum_order_id, $read_items, $post_type ] );
-		$atum_order = AtumCache::get_cache( $cache_key, ATUM_TEXT_DOMAIN, FALSE, $has_cache );
+		if ( 'no' === Helpers::get_option( 'disable_atum_object_caching', 'no' ) ) {
 
-		// If the read items is set to false, but we have an order cached with items, return that one instead of getting it again.
-		if ( ! $read_items && ! $has_cache ) {
-			$cache_key_alt = AtumCache::get_cache_key( 'get_atum_order_model', [ $atum_order_id, TRUE, $post_type ] );
-			$atum_order    = AtumCache::get_cache( $cache_key_alt, ATUM_TEXT_DOMAIN, FALSE, $has_cache );
+			$cache_key  = AtumCache::get_cache_key( 'get_atum_order_model', [ $atum_order_id, $read_items, $post_type ] );
+			$atum_order = AtumCache::get_cache( $cache_key, ATUM_TEXT_DOMAIN, FALSE, $has_cache );
 
-			if ( $has_cache ) {
-				$cache_key = $cache_key_alt;
+			// If the read items arg is set to false, but we have an order cached with items, return that one instead of getting it again.
+			if ( ! $read_items && ! $has_cache ) {
+				$cache_key_alt = AtumCache::get_cache_key( 'get_atum_order_model', [ $atum_order_id, TRUE, $post_type ] );
+				$atum_order    = AtumCache::get_cache( $cache_key_alt, ATUM_TEXT_DOMAIN, FALSE, $has_cache );
+
+				if ( $has_cache ) {
+					AtumCache::delete_cache( $cache_key ); // Try to avoid issues with the previous cache on external caching systems.
+					$cache_key = $cache_key_alt;
+				}
 			}
+
 		}
 
 		if ( ! $has_cache ) {
@@ -1890,7 +1896,10 @@ final class Helpers {
 			}
 
 			$atum_order = new $model_class( $atum_order_id, $read_items );
-			AtumCache::set_cache( $cache_key, $atum_order );
+
+			if ( ! empty( $cache_key ) ) {
+				AtumCache::set_cache( $cache_key, $atum_order );
+			}
 
 		}
 
@@ -2181,8 +2190,9 @@ final class Helpers {
 		if ( ! $product || ! $product instanceof \WC_Product ) {
 			return;
 		}
-		
-		$product_data = apply_filters( 'atum/product_data', $product_data, $product_id );
+
+		$product_data          = apply_filters( 'atum/product_data', $product_data, $product_id );
+		$original_product_data = $product_data;
 		
 		foreach ( $product_data as $meta_key => &$meta_value ) {
 			
@@ -2297,16 +2307,16 @@ final class Helpers {
 		$product->save();
 
 		// Trigger the "after_save_purchase_price" hook is needed if the PL's sync purchase price option is enabled.
-		if ( array_key_exists( substr( Globals::PURCHASE_PRICE_KEY, 1 ), $product_data ) ) {
-			do_action( 'atum/product_data/after_save_purchase_price', $product_id, $product_data[ substr( Globals::PURCHASE_PRICE_KEY, 1 ) ], NULL );
+		if ( array_key_exists( substr( Globals::PURCHASE_PRICE_KEY, 1 ), $original_product_data ) ) {
+			do_action( 'atum/product_data/after_save_purchase_price', $product_id, $original_product_data[ substr( Globals::PURCHASE_PRICE_KEY, 1 ) ], NULL );
 		}
 		
 		if ( ! $skip_action ) {
-			do_action( 'atum/product_data_updated', $product_id, $product_data );
+			do_action( 'atum/product_data_updated', $product_id, $original_product_data );
 		}
 
 		// Run all the hooks that are triggered after a product is saved.
-		do_action( 'atum/product_data/after_save_data', $product_data, $product );
+		do_action( 'atum/product_data/after_save_data', $original_product_data, $product );
 
 	}
 	
@@ -2637,7 +2647,6 @@ final class Helpers {
 					if ( class_exists( $class ) ) {
 
 						if ( $is_singleton ) {
-							/* @noinspection PhpUndefinedMethodInspection */
 							$class::get_instance();
 						}
 						else {
@@ -3382,12 +3391,14 @@ final class Helpers {
 
 			/* translators: the first one is the WordPress plugins directory link and the second is the link closing tag */
 			$rating_text .= sprintf( __( 'If you like <strong>ATUM</strong> please leave us a %1$s&#9733;&#9733;&#9733;&#9733;&#9733;%2$s rating. Huge thanks in advance!', ATUM_TEXT_DOMAIN ), '<a href="https://wordpress.org/support/plugin/atum-stock-manager-for-woocommerce/reviews/?filter=5#new-post" target="_blank" class="wc-rating-link" data-rated="' . esc_attr__( 'Thanks :)', ATUM_TEXT_DOMAIN ) . '">', '</a>' );
-			wc_enqueue_js( "
-				jQuery( 'a.wc-rating-link' ).click( function() {
-					jQuery.post( '" . WC()->ajax_url() . "', { action: 'atum_rated' } );
-					jQuery( this ).parent().text( jQuery( this ).data( 'rated' ) );
-				});
-			" );
+			add_action( 'admin_footer', function () {
+				printf( "<script type='text/javascript'>
+					jQuery( 'a.wc-rating-link' ).click( function() {
+						jQuery.post( '" . WC()->ajax_url() . "', { action: 'atum_rated' } );
+						jQuery( this ).parent().text( jQuery( this ).data( 'rated' ) );
+					});
+				</script>" );
+			} );
 
 		}
 		else {
@@ -4042,6 +4053,17 @@ final class Helpers {
 	 */
 	public static function is_running_cli() {
 		return defined( 'WP_CLI' ) && WP_CLI;
+	}
+
+	/**
+	 * Check whether the current user is not a frontend request.
+	 *
+	 * @since 1.9.55
+	 *
+	 * @return bool
+	 */
+	public static function is_not_front_request() {
+		return is_admin() || wp_doing_ajax() || wp_doing_cron() || Helpers::is_rest_request() || Helpers::is_running_cli();
 	}
 
 }
