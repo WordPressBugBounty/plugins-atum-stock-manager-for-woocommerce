@@ -1,0 +1,1 @@
+<?php return array('dependencies' => array('atum-sweetalert2', 'jquery'), 'version' => 'e6a65953adab');

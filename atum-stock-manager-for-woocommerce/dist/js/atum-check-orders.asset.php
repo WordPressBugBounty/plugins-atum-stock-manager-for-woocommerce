@@ -1,0 +1,1 @@
+<?php return array('dependencies' => array('atum-bootstrap', 'jquery'), 'version' => 'fd617d62ef96');

@@ -1,0 +1,1 @@
+<?php return array('dependencies' => array(), 'version' => 'fe2019246699');
