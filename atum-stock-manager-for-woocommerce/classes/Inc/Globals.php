@@ -14,7 +14,7 @@ namespace Atum\Inc;
 
 defined( 'ABSPATH' ) || die;
 
-use Atum\Components\AtumCache;
+use Atum\Cache\AtumCache;
 use Atum\Components\AtumStockDecimals;
 
 
@@ -211,7 +211,7 @@ final class Globals {
 	public static function get_inheritable_product_types() {
 
 		$cache_key                 = AtumCache::get_cache_key( 'inheritable_product_types' );
-		$inheritable_product_types = AtumCache::get_cache( $cache_key, ATUM_TEXT_DOMAIN, FALSE, $has_cache );
+		$inheritable_product_types = AtumCache::get_cache( $cache_key, $has_cache );
 
 		if ( $has_cache ) {
 			return $inheritable_product_types;
@@ -252,7 +252,7 @@ final class Globals {
 	public static function get_simple_product_types() {
 
 		$cache_key            = AtumCache::get_cache_key( 'simple_product_types' );
-		$simple_product_types = AtumCache::get_cache( $cache_key, ATUM_TEXT_DOMAIN, FALSE, $has_cache );
+		$simple_product_types = AtumCache::get_cache( $cache_key, $has_cache );
 
 		if ( $has_cache ) {
 			return $simple_product_types;
@@ -367,19 +367,6 @@ final class Globals {
 	 */
 	public static function get_queryable_product_statuses( $use_cap = TRUE ) {
 		return (array) apply_filters( 'atum/queryable_product_statuses', ! $use_cap || current_user_can( 'edit_private_products' ) ? self::$queryable_product_statuses : [ 'publish' ] );
-	}
-
-	/**
-	 * Getter for the Stock Decimals property
-	 *
-	 * @since 1.3.4
-	 *
-	 * @return int
-	 *
-	 * @deprecated since 1.9.37. Moved to AtumStockDecimals.
-	 */
-	public static function get_stock_decimals() {
-		return AtumStockDecimals::get_stock_decimals();
 	}
 
 	/**

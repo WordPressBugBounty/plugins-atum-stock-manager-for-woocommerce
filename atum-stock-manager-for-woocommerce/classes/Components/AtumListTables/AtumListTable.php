@@ -14,8 +14,10 @@ namespace Atum\Components\AtumListTables;
 
 defined( 'ABSPATH' ) || die;
 
-use Atum\Components\AtumCache;
+use Atum\Cache\AtumCache;
+use Atum\Components\AtumAssets;
 use Atum\Components\AtumCapabilities;
+use Atum\Components\AtumColors;
 use Atum\Components\AtumHelpGuide;
 use Atum\Components\AtumMarketingPopup;
 use Atum\Inc\Globals;
@@ -3108,19 +3110,24 @@ abstract class AtumListTable extends \WP_List_Table {
 				'type'  => 'CHAR',
 			);
 
+			// NOTE: we used to cache the full WP_Query object here. That broke under persistent object caches
+			// (Redis/Memcached) when the cached payload came back as `__PHP_Incomplete_Class` or got dropped.
+			// Now we cache only the ID list — WP_Query.posts is already an int[] because $products_args sets
+			// 'fields' => 'ids'.
 			$in_stock_transient = AtumCache::get_transient_key( 'list_table_in_stock', $this->get_transient_args() );
 			$products_in_stock  = AtumCache::get_transient( $in_stock_transient );
 
-			if ( empty( $products_in_stock ) && ! empty( $products ) ) {
+			if ( ! is_array( $products_in_stock ) && ! empty( $products ) ) {
 				add_filter( 'posts_clauses', array( $this, 'atum_product_data_query_clauses' ) );
-				$products_in_stock = new \WP_Query( apply_filters( 'atum/list_table/set_views_data/in_stock_products_args', $products_args ) );
+				$in_stock_query = new \WP_Query( apply_filters( 'atum/list_table/set_views_data/in_stock_products_args', $products_args ) );
 				remove_filter( 'posts_clauses', array( $this, 'atum_product_data_query_clauses' ) );
+
+				$products_in_stock = $in_stock_query->found_posts ? (array) $in_stock_query->posts : [];
 				AtumCache::set_transient( $in_stock_transient, $products_in_stock );
 			}
 
 			$this->atum_query_data = $temp_atum_query_data;
-			$products_in_stock     = $products_in_stock instanceof \WP_Query && $products_in_stock->found_posts ?
-				$products_in_stock->posts : [];
+			$products_in_stock     = is_array( $products_in_stock ) ? $products_in_stock : [];
 
 			$this->id_views['in_stock']          = (array) $products_in_stock;
 			$this->count_views['count_in_stock'] = count( $products_in_stock );
@@ -3142,19 +3149,21 @@ abstract class AtumListTable extends \WP_List_Table {
 				'type'  => 'CHAR',
 			);
 
+			// Same treatment as the in-stock cache above — store the ID list, not the WP_Query instance.
 			$backorders_transient = AtumCache::get_transient_key( 'list_table_backorders', $this->get_transient_args() );
 			$products_backorders  = AtumCache::get_transient( $backorders_transient );
 
-			if ( empty( $products_backorders ) && ! empty( $products_not_stock ) ) {
+			if ( ! is_array( $products_backorders ) && ! empty( $products_not_stock ) ) {
 				add_filter( 'posts_clauses', array( $this, 'atum_product_data_query_clauses' ) );
-				$products_backorders = new \WP_Query( apply_filters( 'atum/list_table/set_views_data/back_order_products_args', $products_args ) );
+				$backorders_query = new \WP_Query( apply_filters( 'atum/list_table/set_views_data/back_order_products_args', $products_args ) );
 				remove_filter( 'posts_clauses', array( $this, 'atum_product_data_query_clauses' ) );
+
+				$products_backorders = $backorders_query->found_posts ? (array) $backorders_query->posts : [];
 				AtumCache::set_transient( $backorders_transient, $products_backorders );
 			}
 
 			$this->atum_query_data = $temp_atum_query_data;
-			$products_backorders   = $products_backorders instanceof \WP_Query && $products_backorders->found_posts ?
-				$products_backorders->posts : [];
+			$products_backorders   = is_array( $products_backorders ) ? $products_backorders : [];
 
 			$this->id_views['back_order']          = (array) $products_backorders;
 			$this->count_views['count_back_order'] = count( $products_backorders );
@@ -3797,21 +3806,7 @@ abstract class AtumListTable extends \WP_List_Table {
 	 * @return int
 	 */
 	protected function get_current_list_item_id() {
-
-		if ( 'variation' === $this->list_item->get_type() ) {
-			/**
-			 * Deprecated notice
-			 *
-			 * @deprecated
-			 * The get_variation_id() method was deprecated in WC 3.0.0
-			 * In newer versions the get_id() method always be the variation_id if it's a variation
-			 */
-			/* @noinspection PhpDeprecationInspection */
-			return version_compare( WC()->version, '3.0.0', '<' ) ? $this->list_item->get_variation_id() : $this->list_item->get_id();
-		}
-
 		return $this->list_item->get_id();
-
 	}
 
 	/**
@@ -3915,7 +3910,7 @@ abstract class AtumListTable extends \WP_List_Table {
 		$search_term   = sanitize_text_field( urldecode( stripslashes( trim( $_REQUEST['s'] ) ) ) );
 
 		$cache_key    = AtumCache::get_cache_key( 'product_search', [ $search_column, $search_term ] );
-		$search_where = AtumCache::get_cache( $cache_key, ATUM_TEXT_DOMAIN, FALSE, $has_cache );
+		$search_where = AtumCache::get_cache( $cache_key, $has_cache );
 
 		if ( $has_cache ) {
 			return $search_where;
@@ -4519,23 +4514,20 @@ abstract class AtumListTable extends \WP_List_Table {
 	 */
 	public function enqueue_scripts( $hook ) {
 
-		// Sweet Alert 2.
-		Helpers::register_swal_scripts();
-
 		// ATUM marketing popup.
 		AtumMarketingPopup::get_instance()->maybe_enqueue_scripts();
 
 		// List Table styles.
-		wp_register_style( 'atum-list', ATUM_URL . 'assets/css/atum-list.css', [ 'woocommerce_admin_styles', 'sweetalert2' ], ATUM_VERSION );
+		AtumAssets::register_style( 'atum-list', 'atum-list.css', [ 'woocommerce_admin_styles', 'atum-sweetalert2' ] );
 		wp_enqueue_style( 'atum-list' );
 
 		if ( is_rtl() ) {
-			wp_register_style( 'atum-list-rtl', ATUM_URL . 'assets/css/atum-list-rtl.css', [ 'atum-list' ], ATUM_VERSION );
+			AtumAssets::register_style( 'atum-list-rtl', 'atum-list-rtl.css', [ 'atum-list' ] );
 			wp_enqueue_style( 'atum-list-rtl' );
 		}
 
 		// Load the ATUM colors.
-		Helpers::enqueue_atum_colors( 'atum-list' );
+		AtumColors::enqueue_atum_colors( 'atum-list' );
 
 		// If it's the first time the user edits the List Table, load the sweetalert to show the popup.
 		// TODO: WHAT IS THIS????
@@ -4544,7 +4536,7 @@ abstract class AtumListTable extends \WP_List_Table {
 			$this->first_edit_key = $first_edit_key;
 		}
 
-		$deps = [ 'jquery', 'sweetalert2', 'wc-enhanced-select', 'wp-hooks' ];
+		$deps = [ 'jquery', 'atum-sweetalert2', 'wc-enhanced-select', 'wp-hooks', 'atum-select2', 'atum-jquery-address', 'atum-jscrollpane', 'atum-floatthead', 'atum-easytree', 'atum-dragscroll' ];
 
 		/* @deprecated since WC 10.3.0 */
 		if ( version_compare( WC()->version, '10.3.0', '<' ) ) {
@@ -4555,7 +4547,7 @@ abstract class AtumListTable extends \WP_List_Table {
 		}
 
 		// List Table script.
-		wp_register_script( 'atum-list', ATUM_URL . 'assets/js/build/atum-list-tables.js', $deps, ATUM_VERSION, TRUE );
+		AtumAssets::register_script( 'atum-list', 'atum-list-tables.js', $deps );
 		wp_enqueue_script( 'atum-list' );
 
 		do_action( 'atum/list_table/after_enqueue_scripts', $this );
@@ -4791,7 +4783,7 @@ abstract class AtumListTable extends \WP_List_Table {
 
 			// Sometimes with the general cache for this function is not enough to avoid duplicated queries.
 			$cache_key    = AtumCache::get_cache_key( 'get_children_query', $children_args );
-			$children_ids = AtumCache::get_cache( $cache_key, ATUM_TEXT_DOMAIN, FALSE, $has_cache );
+			$children_ids = AtumCache::get_cache( $cache_key, $has_cache );
 
 			if ( $has_cache ) {
 				return $children_ids;

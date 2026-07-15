@@ -13,6 +13,7 @@ namespace Atum;
 
 defined( 'ABSPATH' ) || die;
 
+use Atum\Cache\WCProductCacheCompat;
 use Atum\Components\AtumAdminNotices;
 use Atum\Components\AtumCapabilities;
 use Atum\Components\AtumOrders\AtumComments;
@@ -60,6 +61,10 @@ class Bootstrap {
 	 */
 	private function __construct() {
 
+		// Must be registered as soon as possible because Woo ProductCache
+		// memoizes its cache engine the first time wc_get_product() is called.
+		WCProductCacheCompat::init();
+
 		// Check all the requirements before bootstrapping.
 		add_action( 'plugins_loaded', array( $this, 'maybe_bootstrap' ) );
 
@@ -99,6 +104,24 @@ class Bootstrap {
 
 			// Fix for authenticating with application passwords on ATUM API endpoints.
 			add_filter( 'application_password_is_api_request', array( $this, 'check_application_password_api_request' ) );
+
+			/*
+			 * Register the atum-* vendor handles before any ATUM script enqueue runs.
+			 *
+			 * Two hooks, two scopes:
+			 *   - `admin_enqueue_scripts` → `register_atum_vendor_scripts()`: full
+			 *     set (11 handles) for the admin where ATUM screens use them all.
+			 *   - `wp_enqueue_scripts` → `register_atum_vendor_scripts_public()`:
+			 *     narrow subset (currently only `atum-select2`) for the
+			 *     frontend, to avoid registering admin-only vendors on every
+			 *     public page request.
+			 *
+			 * If a future frontend feature needs another vendor, extend the
+			 * `register_atum_vendor_scripts_public()` method — do NOT swap this
+			 * hook to the full registrar.
+			 */
+			add_action( 'admin_enqueue_scripts', array( '\Atum\Components\AtumAssets', 'register_atum_vendor_scripts' ), 1 );
+			add_action( 'wp_enqueue_scripts', array( '\Atum\Components\AtumAssets', 'register_atum_vendor_scripts_public' ), 1 );
 
 			// Make sure the capabilities are registered.
 			if ( is_super_admin() && ! AtumCapabilities::current_user_can( 'view_admin_menu' ) ) {

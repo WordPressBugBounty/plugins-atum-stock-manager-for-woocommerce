@@ -14,6 +14,7 @@ namespace Atum\Components;
 
 defined( 'ABSPATH' ) || die;
 
+use Atum\Cache\AtumCache;
 use Atum\Inc\Helpers;
 
 class AtumAdminModal {
@@ -140,13 +141,11 @@ class AtumAdminModal {
 			}
 		}
 
-		Helpers::register_swal_scripts();
+		AtumAssets::register_style( 'atum-admin-modals', 'atum-admin-modals.css', [ 'atum-sweetalert2' ] );
 
-		wp_register_style( 'atum-admin-modals', ATUM_URL . 'assets/css/atum-admin-modals.css', [ 'sweetalert2' ], ATUM_VERSION );
+		$js_deps = array_merge( [ 'jquery', 'atum-sweetalert2' ], $this->js_dependencies );
 
-		$js_deps = array_merge( [ 'jquery', 'sweetalert2' ], $this->js_dependencies );
-
-		wp_register_script( 'atum-admin-modals', ATUM_URL . 'assets/js/build/atum-admin-modals.js', $js_deps, ATUM_VERSION, TRUE );
+		AtumAssets::register_script( 'atum-admin-modals', 'atum-admin-modals.js', $js_deps );
 		wp_localize_script( 'atum-admin-modals', 'atumAdminModalVars', $admin_modal_vars );
 
 		wp_enqueue_style( 'atum-admin-modals' );

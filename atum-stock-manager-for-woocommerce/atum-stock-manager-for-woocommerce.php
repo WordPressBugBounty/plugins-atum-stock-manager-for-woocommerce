@@ -10,15 +10,15 @@
  * Requires Plugins:     woocommerce
  * Plugin URI:           https://stockmanagementlabs.com/
  * Description:          The ultimate stock management plugin for serious WooCommerce sellers
- * Version:              1.9.56
+ * Version:              2.0.1
  * Author:               Stock Management Labs™
  * Author URI:           https://stockmanagementlabs.com/
  * Contributors:         BE REBEL - https://berebel.studio
- * Requires at least:    5.9
- * Tested up to:         7.1.0
+ * Requires at least:    6.8
+ * Tested up to:         7.0
  * Requires PHP:         7.4
- * WC requires at least: 5.0
- * WC tested up to:      10.7.0
+ * WC requires at least: 8.0
+ * WC tested up to:      10.9.4
  * Text Domain:          atum-stock-manager-for-woocommerce
  * Domain Path:          /languages
  * License:              GPLv2 or later
@@ -28,15 +28,15 @@
 defined( 'ABSPATH' ) || die;
 
 if ( ! defined( 'ATUM_VERSION' ) ) {
-	define( 'ATUM_VERSION', '1.9.56' );
+	define( 'ATUM_VERSION', '2.0.1' );
 }
 
 if ( ! defined( 'ATUM_WC_MINIMUM_VERSION' ) ) {
-	define( 'ATUM_WC_MINIMUM_VERSION', '5.0' );
+	define( 'ATUM_WC_MINIMUM_VERSION', '8.0' );
 }
 
 if ( ! defined( 'ATUM_WP_MINIMUM_VERSION' ) ) {
-	define( 'ATUM_WP_MINIMUM_VERSION', '5.9' );
+	define( 'ATUM_WP_MINIMUM_VERSION', '6.8' );
 }
 
 if ( ! defined( 'ATUM_PHP_MINIMUM_VERSION' ) ) {
@@ -49,6 +49,14 @@ if ( ! defined( 'ATUM_PATH' ) ) {
 
 if ( ! defined( 'ATUM_URL' ) ) {
 	define( 'ATUM_URL', plugin_dir_url( __FILE__ ) );
+}
+
+if ( ! defined( 'ATUM_DIST_URL' ) ) {
+	define( 'ATUM_DIST_URL', ATUM_URL . 'dist/' );
+}
+
+if ( ! defined( 'ATUM_DIST_PATH' ) ) {
+	define( 'ATUM_DIST_PATH', ATUM_PATH . 'dist/' );
 }
 
 if ( ! defined( 'ATUM_BASENAME' ) ) {
@@ -93,6 +101,9 @@ else {
 
 	// Use Composer's autoloader and PSR4 for naming convention.
 	require ATUM_PATH . 'vendor/autoload.php';
+
+	\Atum\Inc\ViteDevServer::maybe_bootstrap();
+
 	\Atum\Bootstrap::get_instance();
 
 }

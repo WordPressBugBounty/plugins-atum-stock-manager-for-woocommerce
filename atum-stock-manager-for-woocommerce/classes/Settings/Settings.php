@@ -14,7 +14,8 @@ namespace Atum\Settings;
 
 defined( 'ABSPATH' ) || die;
 
-use Atum\Components\AtumCache;
+use Atum\Cache\AtumCache;
+use Atum\Components\AtumAssets;
 use Atum\Components\AtumCapabilities;
 use Atum\Components\AtumColors;
 use Atum\Components\AtumMarketingPopup;
@@ -194,18 +195,15 @@ class Settings {
 
 		if ( in_array( $hook, [ Globals::ATUM_UI_HOOK . '_page_' . self::UI_SLUG, 'toplevel_page_' . self::UI_SLUG ] ) ) {
 
-			Helpers::register_swal_scripts();
 
-			wp_register_style( self::UI_SLUG, ATUM_URL . 'assets/css/atum-settings.css', [ 'sweetalert2' ], ATUM_VERSION );
-
-			wp_register_script( 'color-picker-alpha', ATUM_URL . 'assets/js/vendor/wp-color-picker-alpha.js', [ 'wp-color-picker' ], ATUM_VERSION, TRUE );
+			AtumAssets::register_style( self::UI_SLUG, 'atum-settings.css', [ 'atum-sweetalert2' ] );
+			AtumAssets::register_script( 'atum-color-picker-alpha', 'wp-color-picker-alpha.min.js', [ 'wp-color-picker' ], TRUE );
 
 			// ATUM marketing popup.
 			AtumMarketingPopup::get_instance()->maybe_enqueue_scripts();
 
-			wp_register_script( self::UI_SLUG, ATUM_URL . 'assets/js/build/atum-settings.js', [ 'jquery', 'sweetalert2', 'wp-color-picker', 'wp-hooks' ], ATUM_VERSION, TRUE );
-
-			wp_localize_script( self::UI_SLUG, 'atumSettingsVars', array(
+			AtumAssets::register_script( self::UI_SLUG, 'atum-settings.js', [ 'jquery', 'atum-sweetalert2', 'atum-select2', 'atum-jquery-address', 'wp-color-picker', 'wp-hooks' ] );
+			wp_localize_script( self::UI_SLUG, 'atumSettingsVars', array_merge( Globals::get_date_time_picker_js_vars(), array(
 				'areYouSure'         => __( 'Are you sure?', ATUM_TEXT_DOMAIN ),
 				'atumPrefix'         => ATUM_PREFIX,
 				'branded'            => __( 'Branded', ATUM_TEXT_DOMAIN ),
@@ -235,23 +233,23 @@ class Settings {
 				'unsavedData'        => __( "If you move to another section without saving, you'll lose the changes you made to this Settings section", ATUM_TEXT_DOMAIN ),
 				'unselectAll'        => __( 'Unselect All', ATUM_TEXT_DOMAIN ),
 				'useSavedValues'     => __( 'Use Saved Values', ATUM_TEXT_DOMAIN ),
-			) );
+			) ) );
 
 			wp_enqueue_style( 'woocommerce_admin_styles' );
 			wp_enqueue_style( 'wp-color-picker' );
 			wp_enqueue_style( self::UI_SLUG );
 
 			if ( is_rtl() ) {
-				wp_register_style( self::UI_SLUG . '-rtl', ATUM_URL . 'assets/css/atum-settings-rtl.css', array( self::UI_SLUG ), ATUM_VERSION );
+				AtumAssets::register_style(  self::UI_SLUG . '-rtl', 'atum-settings-rtl.css', [ self::UI_SLUG ] );
 				wp_enqueue_style( self::UI_SLUG . '-rtl' );
 			}
 
 			// Load the ATUM colors.
-			Helpers::enqueue_atum_colors( self::UI_SLUG );
+			AtumColors::enqueue_atum_colors( self::UI_SLUG );
 
 			wp_enqueue_editor();
 			wp_enqueue_media();
-			wp_enqueue_script( 'color-picker-alpha' );
+			wp_enqueue_script( 'atum-color-picker-alpha' );
 			wp_enqueue_script( self::UI_SLUG );
 
 		}
@@ -682,11 +680,12 @@ class Settings {
 				'type'    => 'switcher',
 				'default' => 'no',
 			),*/
+			/* @deprecated since ATUM 2.0. Remove when safe. */
 			'disable_atum_object_caching' => array(
 				'group'   => 'advanced',
 				'section' => 'advanced',
 				'name'    => __( "Disable ATUM orders' object caching", ATUM_TEXT_DOMAIN ),
-				'desc'    => __( 'Disable the object caching on ATUM Orders when some external caching systems were causing issues across ATUM pages. Recommended when your site is hosted at WP Engine and you have their object cache enabled.', ATUM_TEXT_DOMAIN ),
+				'desc'    => __( "Bypasses ATUM's in-memory cache for Logs and Purchase Orders. From v2.0 onwards, ATUM no longer stores PHP object instances in persistent caches (Redis, Memcached, LiteSpeed…), so this switch should generally NOT be needed. Leave it OFF for best performance and only enable it if you still see stale data or fatals related to ATUM orders after a deploy and a cache flush.", ATUM_TEXT_DOMAIN ),
 				'type'    => 'switcher',
 				'default' => function_exists('is_wpe') ? 'yes' : 'no', // Only enable by default for WP Engine hosting.
 			),
@@ -1557,7 +1556,7 @@ class Settings {
 
 				<div class="selector-container">
 					<div class="selector-box" data-value="<?php echo esc_attr( $option['key'] ); ?>" data-reset="0">
-						<img src="<?php echo esc_attr( ATUM_URL . 'assets/images/settings/' . $option['thumb'] ); ?>" alt=""
+						<img src="<?php echo esc_attr( ATUM_DIST_URL . 'images/settings/' . $option['thumb'] ); ?>" alt=""
 							class="<?php echo ! $theme && 'branded_mode' === $option['key'] || $theme === $option['key'] ? ' active' : ''; ?>">
 					</div>
 

@@ -14,6 +14,7 @@ namespace Atum\Dashboard;
 
 defined( 'ABSPATH' ) || die;
 
+use Atum\Components\AtumAssets;
 use Atum\Components\AtumColors;
 use Atum\Components\AtumMarketingPopup;
 use Atum\Components\AtumWidget;
@@ -42,61 +43,62 @@ class Dashboard {
 	 * @var array
 	 */
 	private static $default_widgets_layout = array(
+		/*
+		 * NOTE on heights: `min-h` is intentionally GREATER than `h` (legacy
+		 * v1 behaviour). Both gridstack v1 and v12 clamp the rendered height
+		 * up to `min-h` (`h = max(h, min-h)`), so the standard widgets render
+		 * at 5 rows at 7. With cellHeight 90 (see _dashboard.ts)
+		 * that reproduces the exact v1 pixel heights. Do NOT "fix" min-h to be
+		 * <= h or every existing user's widgets would shrink.
+		 */
 		ATUM_PREFIX . 'statistics_widget'          => array(
 			'x'          => 0,                              // X edge position.
 			'y'          => 0,                              // Y edge position.
-			'width'      => 12,                             // Width in columns (based in 12 columns).
-			'height'     => 4,                              // Height in rows.
-			'min-height' => 5,
+			'w'          => 12,                             // Width in columns (based in 12 columns).
+			'h'          => 4,                              // Height in rows.
+			'min-h'      => 5,                              // Effective render height (clamped up).
 		),
 		ATUM_PREFIX . 'sales_widget'               => array(
 			'x'          => 0,
 			'y'          => 5,
-			'width'      => 3,
-			'height'     => 4,
-			'min-height' => 5,
+			'w'          => 3,
+			'h'          => 4,
+			'min-h'      => 5,
 		),
 		ATUM_PREFIX . 'lost_sales_widget'          => array(
 			'x'          => 3,
 			'y'          => 5,
-			'width'      => 3,
-			'height'     => 4,
-			'min-height' => 5,
+			'w'          => 3,
+			'h'          => 4,
+			'min-h'      => 5,
 		),
 		ATUM_PREFIX . 'orders_widget'              => array(
 			'x'          => 6,
 			'y'          => 5,
-			'width'      => 3,
-			'height'     => 4,
-			'min-height' => 5,
+			'w'          => 3,
+			'h'          => 4,
+			'min-h'      => 5,
 		),
 		ATUM_PREFIX . 'promo_sales_widget'         => array(
 			'x'          => 9,
 			'y'          => 5,
-			'width'      => 3,
-			'height'     => 4,
-			'min-height' => 5,
+			'w'          => 3,
+			'h'          => 4,
+			'min-h'      => 5,
 		),
 		ATUM_PREFIX . 'stock_control_widget'       => array(
 			'x'          => 0,
 			'y'          => 10,
-			'width'      => 6,
-			'height'     => 4,
-			'min-height' => 5,
+			'w'          => 6,
+			'h'          => 4,
+			'min-h'      => 5,
 		),
 		ATUM_PREFIX . 'current_stock_value_widget' => array(
 			'x'          => 6,
 			'y'          => 10,
-			'width'      => 6,
-			'height'     => 4,
-			'min-height' => 5,
-		),
-		ATUM_PREFIX . 'videos_widget'              => array(
-			'x'          => 0,
-			'y'          => 15,
-			'width'      => 12,
-			'height'     => 5,
-			'min-height' => 7,
+			'w'          => 6,
+			'h'          => 4,
+			'min-h'      => 5,
 		),
 	);
 
@@ -106,9 +108,9 @@ class Dashboard {
 	 * @var array
 	 */
 	protected $widget_grid_item_defaults = array(
-		'id'        => '',
-		'min-width' => 3,
-		'max-width' => 12,
+		'id'    => '',
+		'min-w' => 3,
+		'max-w' => 12,
 	);
 
 	/**
@@ -205,8 +207,37 @@ class Dashboard {
 			$widget_layout['id'] = $widget_id;
 		}
 
-		$widget_data = Helpers::array_to_data( $widget_layout, 'gs-' );
+		$widget_data = self::build_gridstack_attrs( $widget_layout );
 		Helpers::load_view( 'widgets/widget-wrapper', compact( 'widget', 'widget_data' ) );
+	}
+
+	/**
+	 * Build the gridstack item HTML attributes from a widget layout.
+	 *
+	 * Gridstack v12 reads layout from plain `gs-x` / `gs-y` / `gs-w` / `gs-h`
+	 * attributes (the `data-` prefix used by v1.x was removed in v3.0). We
+	 * can't use the generic `Helpers::array_to_data()` here because that one
+	 * always prepends `data-`.
+	 *
+	 * @since 2.0.0
+	 *
+	 * @param array $layout
+	 *
+	 * @return string
+	 */
+	private static function build_gridstack_attrs( array $layout ) {
+
+		$attrs = [];
+
+		foreach ( $layout as $key => $value ) {
+			if ( is_array( $value ) ) {
+				continue;
+			}
+			$attrs[] = sprintf( "gs-%s='%s'", $key, esc_attr( $value ) );
+		}
+
+		return implode( ' ', $attrs );
+
 	}
 
 	/**
@@ -270,35 +301,24 @@ class Dashboard {
 
 			$user_widgets_layout = self::get_user_widgets_layout();
 
-			/**
-			 * Sweet Alert 2.
-			 */
-			Helpers::register_swal_scripts();
-
 			/*
 			 * Owl Carousel.
 			 */
-			wp_register_style( 'owl.carousel', ATUM_URL . 'assets/css/vendor/owl.carousel.min.css', [], ATUM_VERSION );
-			wp_register_style( 'owl.carousel.theme', ATUM_URL . 'assets/css/vendor/owl.theme.default.min.css', [], ATUM_VERSION );
-
-			/*
-			 * Gridstack.
-			 */
-			wp_register_script( 'atum-lodash', ATUM_URL . 'assets/js/vendor/lodash.min.js', [], ATUM_VERSION, TRUE ); // Custom handler required to not load the WP version.
-			wp_register_script( 'jquery-ui-touch', ATUM_URL . 'assets/js/vendor/jquery.ui.touch-punch.min.js', [], ATUM_VERSION, TRUE );
-			wp_register_script( 'gridstack', ATUM_URL . 'assets/js/vendor/gridstack.min.js', [ 'jquery', 'jquery-ui-core', 'jquery-ui-widget', 'jquery-ui-mouse', 'jquery-ui-draggable', 'jquery-ui-resizable', 'jquery-ui-touch', 'atum-lodash' ], ATUM_VERSION, TRUE );
-			wp_register_script( 'gridstack-jquery-ui', ATUM_URL . 'assets/js/vendor/gridstack.jqueryui.min.js', [ 'gridstack' ], ATUM_VERSION, TRUE );
+			AtumAssets::register_style( 'owl.carousel', 'owl.carousel.min.css', [], TRUE );
+			AtumAssets::register_style( 'owl.carousel.theme', 'owl.theme.default.min.css', [], TRUE );
 
 			/*
 			 * NiceScroll.
 			 */
-			wp_register_script( 'jquery-nice-scroll', ATUM_URL . 'assets/js/vendor/jquery.nicescroll.min.js', [ 'jquery' ], ATUM_VERSION, TRUE );
+			AtumAssets::register_script( 'atum-jquery-nice-scroll', 'jquery.nicescroll.min.js', [ 'jquery' ], TRUE );
 
 			/*
-			 * Dependencies.
+			 * Dependencies. `atum-chartjs`, `atum-bootstrap`, etc. are auto-added
+			 * by `get_asset_dependencies()` if the bundle imports them (union with
+			 * the fallback below).
 			 */
-			$script_deps = [ 'gridstack', 'gridstack-jquery-ui', 'sweetalert2', 'jquery-nice-scroll', 'jquery-ui-sortable', 'wp-hooks' ];
-			$style_deps  = [ 'sweetalert2', 'owl.carousel', 'owl.carousel.theme' ];
+			$script_deps = [ 'atum-sweetalert2', 'atum-jquery-nice-scroll', 'jquery-ui-sortable', 'jquery-ui-draggable', 'wp-hooks' ];
+			$style_deps  = [ 'atum-sweetalert2', 'owl.carousel', 'owl.carousel.theme' ];
 
 			/* @deprecated since WC 10.3.0 */
 			if ( version_compare( WC()->version, '10.3.0', '<' ) ) {
@@ -320,18 +340,18 @@ class Dashboard {
 			/*
 			 * ATUM Dashboard scripts.
 			 */
-			wp_register_style( 'atum-dashboard', ATUM_URL . 'assets/css/atum-dashboard.css', $style_deps, ATUM_VERSION );
+			AtumAssets::register_style( 'atum-dashboard', 'atum-dashboard.css', $style_deps );
 			wp_enqueue_style( 'atum-dashboard' );
 
 			if ( is_rtl() ) {
-				wp_register_style( 'atum-dashboard-rtl', ATUM_URL . 'assets/css/atum-dashboard-rtl.css', [ 'atum-dashboard' ], ATUM_VERSION );
+				AtumAssets::register_style( 'atum-dashboard-rtl', 'atum-dashboard-rtl.css', [ 'atum-dashboard' ] );
 				wp_enqueue_style( 'atum-dashboard-rtl' );
 			}
 
 			// Load the ATUM colors.
-			Helpers::enqueue_atum_colors( 'atum-dashboard' );
+			AtumColors::enqueue_atum_colors( 'atum-dashboard' );
 
-			wp_register_script( 'atum-dashboard', ATUM_URL . 'assets/js/build/atum-dashboard.js', $script_deps, ATUM_VERSION, TRUE );
+			AtumAssets::register_script( 'atum-dashboard', 'atum-dashboard.js', $script_deps );
 
 			$dash_vars = array(
 				'areYouSure'            => __( 'Are you sure?', ATUM_TEXT_DOMAIN ),
@@ -428,10 +448,70 @@ class Dashboard {
 				self::$user_widgets_layout = $default_layouts;
 				self::save_user_widgets_layout( $user_id, self::$user_widgets_layout );
 			}
+			else {
+				// Backward-compat: legacy layouts (saved under gridstack v1) use
+				// `width`/`height`/`min-height`/`min-width`/`max-width`. Gridstack
+				// v12 expects `w`/`h`/`min-h`/`min-w`/`max-w`. Normalize on read
+				// so existing users keep their saved layout after the upgrade.
+				self::$user_widgets_layout = self::normalize_legacy_layout_keys( self::$user_widgets_layout );
+			}
 
 		}
 
 		return self::$user_widgets_layout;
+
+	}
+
+	/**
+	 * Convert legacy gridstack-v1 layout keys (width, height, min-width,
+	 * max-width, min-height, max-height) to the gridstack-v12 short form
+	 * (w, h, min-w, max-w, min-h, max-h).
+	 *
+	 * NOTE: we deliberately do NOT clamp `min-h` to `h`. The legacy defaults
+	 * shipped with `min-height` > `height` (e.g. h:4 / min-h:5) ON PURPOSE:
+	 * gridstack v1 clamped the rendered height UP to min-height
+	 * (`height = Math.max(height, minHeight)`), so widgets actually rendered
+	 * at 5 rows. Gridstack v12 does the same clamp, so leaving the values
+	 * untouched reproduces the v1 height exactly for existing user layouts.
+	 *
+	 * @since 2.0.0
+	 *
+	 * @param array $layout
+	 *
+	 * @return array
+	 */
+	private static function normalize_legacy_layout_keys( $layout ) {
+
+		if ( ! is_array( $layout ) ) {
+			return $layout;
+		}
+
+		$rename = [
+			'width'      => 'w',
+			'height'     => 'h',
+			'min-width'  => 'min-w',
+			'max-width'  => 'max-w',
+			'min-height' => 'min-h',
+			'max-height' => 'max-h',
+		];
+
+		foreach ( $layout as $widget_id => $widget_data ) {
+
+			if ( ! is_array( $widget_data ) ) {
+				continue;
+			}
+
+			foreach ( $rename as $old => $new ) {
+				if ( array_key_exists( $old, $widget_data ) && ! array_key_exists( $new, $widget_data ) ) {
+					$widget_data[ $new ] = $widget_data[ $old ];
+				}
+				unset( $widget_data[ $old ] );
+			}
+
+			$layout[ $widget_id ] = $widget_data;
+		}
+
+		return $layout;
 
 	}
 

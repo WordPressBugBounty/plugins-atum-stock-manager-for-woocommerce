@@ -56,63 +56,6 @@
             "install-path": "../jimmiw/php-time-ago"
         },
         {
-            "name": "madcoda/php-youtube-api",
-            "version": "v1.2.6",
-            "version_normalized": "1.2.6.0",
-            "source": {
-                "type": "git",
-                "url": "https://github.com/madcoda/php-youtube-api.git",
-                "reference": "70debe2a140339e145a57d64cd4e9e12f393332f"
-            },
-            "dist": {
-                "type": "zip",
-                "url": "https://api.github.com/repos/madcoda/php-youtube-api/zipball/70debe2a140339e145a57d64cd4e9e12f393332f",
-                "reference": "70debe2a140339e145a57d64cd4e9e12f393332f",
-                "shasum": ""
-            },
-            "require": {
-                "ext-curl": "*",
-                "php": ">=7.0"
-            },
-            "require-dev": {
-                "phpunit/phpunit": "^5.7"
-            },
-            "time": "2021-07-05T02:35:55+00:00",
-            "type": "library",
-            "installation-source": "dist",
-            "autoload": {
-                "psr-4": {
-                    "Madcoda\\Youtube\\": "src"
-                },
-                "classmap": [
-                    "src/compat.php"
-                ]
-            },
-            "notification-url": "https://packagist.org/downloads/",
-            "license": [
-                "MIT"
-            ],
-            "authors": [
-                {
-                    "name": "Madcoda",
-                    "email": "jason@madcoda.com"
-                }
-            ],
-            "description": "PHP wrapper for the Youtube Data API v3",
-            "keywords": [
-                "api",
-                "madcoda",
-                "video",
-                "youtube"
-            ],
-            "support": {
-                "email": "jason@madcoda.com",
-                "issues": "https://github.com/madcoda/php-youtube-api/issues",
-                "source": "https://github.com/madcoda/php-youtube-api/tree/v1.2.6"
-            },
-            "install-path": "../madcoda/php-youtube-api"
-        },
-        {
             "name": "mpdf/mpdf",
             "version": "v8.2.0",
             "version_normalized": "8.2.0.0",
@@ -293,6 +236,57 @@
                 "source": "https://github.com/mpdf/psr-log-aware-trait/tree/v2.0.0"
             },
             "install-path": "../mpdf/psr-log-aware-trait"
+        },
+        {
+            "name": "mrottow/vite-wordpress",
+            "version": "v0.1.3",
+            "version_normalized": "0.1.3.0",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/mrOttoW/vite-wordpress-php.git",
+                "reference": "a540d91526294723ee7ab47c205d69c477c0e3ed"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/mrOttoW/vite-wordpress-php/zipball/a540d91526294723ee7ab47c205d69c477c0e3ed",
+                "reference": "a540d91526294723ee7ab47c205d69c477c0e3ed",
+                "shasum": ""
+            },
+            "require-dev": {
+                "brain/monkey": "^2.6",
+                "phpunit/phpunit": "^11.5",
+                "szepeviktor/phpstan-wordpress": "^2.0",
+                "wp-coding-standards/wpcs": "^3.1"
+            },
+            "time": "2024-12-26T02:41:25+00:00",
+            "type": "library",
+            "installation-source": "dist",
+            "autoload": {
+                "psr-4": {
+                    "ViteWordPress\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "mrOttoW"
+                }
+            ],
+            "description": "A collection of back-end utilities for ViteWordpress.",
+            "keywords": [
+                "vite",
+                "vitejs",
+                "wordpress",
+                "wordpress vite"
+            ],
+            "support": {
+                "issues": "https://github.com/mrOttoW/vite-wordpress-php/issues",
+                "source": "https://github.com/mrOttoW/vite-wordpress-php/tree/v0.1.3"
+            },
+            "install-path": "../mrottow/vite-wordpress"
         },
         {
             "name": "myclabs/deep-copy",
@@ -595,5 +589,7 @@
         }
     ],
     "dev": true,
-    "dev-package-names": []
+    "dev-package-names": [
+        "mrottow/vite-wordpress"
+    ]
 }

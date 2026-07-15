@@ -2,12 +2,12 @@
 
 Contributors: stockmanagementlabs, salvamb, japiera, agimeno82, dorquium
 Tags: woocommerce stock management, suppliers, purchase orders, inbound stock, inventory logs
-Requires at least: 5.9
-Tested up to: 7.1.0
+Requires at least: 6.8
+Tested up to: 7.0
 Requires PHP: 7.4
-WC requires at least: 5.0
-WC tested up to: 10.7.0
-Stable tag: 1.9.56
+WC requires at least: 6.0
+WC tested up to: 10.9.4
+Stable tag: 2.0.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -15,7 +15,7 @@ WooCommerce Full Inventory Management, Purchase Orders, Suppliers, Inbound Stock
 
 == Description ==
 
-**✨ NEW IMPROVED ATUM v1.9 ✨**
+**✨ NEW IMPROVED ATUM v2 ✨**
 
 [youtube https://www.youtube.com/watch?v=uAUXj4vUYRs]
 
@@ -213,6 +213,38 @@ We officially support: WooCommerce Product Bundles, WooCommerce Subscriptions, W
 
 
 == Changelog ==
+
+---
+
+`2.0.1`
+
+*2026-07-15*
+
+**Features**
+
+* Improved ATUM cache system.
+* Added compatibility to "WC Product Object Caching" feature.
+* Modernized dev environment.
+* New AtumAssets class.
+* Upgraded to gridstack v12.
+* Upgraded chart.js.
+* Upgraded intro.js.
+
+**Changes**
+
+* Refactoring.
+* Removed deprecated news and video widgets.
+* Removed deprecated code.
+
+**Fixes**
+
+* CSS fixes.
+* Fixed namespaces.
+* Fixed wrong tooltips shown when the sales statistics chart is disabled.
+* Fixed jquery compatible versions.
+* Security fix in ajax callback (thanks @Saher).
+* Several security fixes and hardening.
+* Fixed delete IL items in bulk.
 
 ---
 

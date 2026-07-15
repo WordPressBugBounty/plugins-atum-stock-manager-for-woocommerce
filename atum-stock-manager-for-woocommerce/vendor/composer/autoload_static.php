@@ -12,74 +12,77 @@ class ComposerStaticInitb5eb915d7249c0bad4569c36eaa9393c
     );
 
     public static $prefixLengthsPsr4 = array (
-        's' => 
+        's' =>
         array (
             'setasign\\Fpdi\\' => 14,
         ),
-        'W' => 
+        'W' =>
         array (
             'Westsworld\\' => 11,
         ),
-        'P' => 
+        'V' =>
+        array (
+            'ViteWordPress\\' => 14,
+        ),
+        'P' =>
         array (
             'Psr\\Log\\' => 8,
             'Psr\\Http\\Message\\' => 17,
         ),
-        'M' => 
+        'M' =>
         array (
             'Mpdf\\PsrLogAwareTrait\\' => 22,
             'Mpdf\\PsrHttpMessageShim\\' => 24,
             'Mpdf\\' => 5,
-            'Madcoda\\Youtube\\' => 16,
         ),
-        'D' => 
+        'D' =>
         array (
             'DeepCopy\\' => 9,
         ),
-        'A' => 
+        'A' =>
         array (
             'Atum\\' => 5,
         ),
     );
 
     public static $prefixDirsPsr4 = array (
-        'setasign\\Fpdi\\' => 
+        'setasign\\Fpdi\\' =>
         array (
             0 => __DIR__ . '/..' . '/setasign/fpdi/src',
         ),
-        'Westsworld\\' => 
+        'Westsworld\\' =>
         array (
             0 => __DIR__ . '/..' . '/jimmiw/php-time-ago/src/Westsworld',
         ),
-        'Psr\\Log\\' => 
+        'ViteWordPress\\' =>
+        array (
+            0 => __DIR__ . '/..' . '/mrottow/vite-wordpress/src',
+        ),
+        'Psr\\Log\\' =>
         array (
             0 => __DIR__ . '/..' . '/psr/log/Psr/Log',
         ),
-        'Psr\\Http\\Message\\' => 
+        'Psr\\Http\\Message\\' =>
         array (
             0 => __DIR__ . '/..' . '/psr/http-message/src',
         ),
-        'Mpdf\\PsrLogAwareTrait\\' => 
+        'Mpdf\\PsrLogAwareTrait\\' =>
         array (
             0 => __DIR__ . '/..' . '/mpdf/psr-log-aware-trait/src',
         ),
-        'Mpdf\\PsrHttpMessageShim\\' => 
+        'Mpdf\\PsrHttpMessageShim\\' =>
         array (
             0 => __DIR__ . '/..' . '/mpdf/psr-http-message-shim/src',
         ),
-        'Mpdf\\' => 
+        'Mpdf\\' =>
         array (
             0 => __DIR__ . '/..' . '/mpdf/mpdf/src',
         ),
-        'Madcoda\\Youtube\\' => 
-        array (
-            0 => __DIR__ . '/..' . '/madcoda/php-youtube-api/src',
-        ),
-        'DeepCopy\\' => 
+        'DeepCopy\\' =>
         array (
             0 => __DIR__ . '/..' . '/myclabs/deep-copy/src/DeepCopy',
         ),
-        'Atum\\' => 
+        'Atum\\' =>
         array (
             0 => __DIR__ . '/../..' . '/classes',
         ),
@@ -149,12 +152,15 @@ class ComposerStaticInitb5eb915d7249c0bad4569c36eaa9393c
         'Atum\\Api\\Generators\\TaxRateGenerator' => __DIR__ . '/../..' . '/classes/Api/Generators/TaxRateGenerator.php',
         'Atum\\Api\\Generators\\VariationGenerator' => __DIR__ . '/../..' . '/classes/Api/Generators/VariationGenerator.php',
         'Atum\\Bootstrap' => __DIR__ . '/../..' . '/classes/Bootstrap.php',
+        'Atum\\Cache\\AtumCache' => __DIR__ . '/../..' . '/classes/Cache/AtumCache.php',
+        'Atum\\Cache\\WCProductCacheCompat' => __DIR__ . '/../..' . '/classes/Cache/WCProductCacheCompat.php',
+        'Atum\\Cache\\WCProductCacheEngine' => __DIR__ . '/../..' . '/classes/Cache/WCProductCacheEngine.php',
         'Atum\\Cli\\AtumCli' => __DIR__ . '/../..' . '/classes/Cli/AtumCli.php',
         'Atum\\Cli\\CliCommands' => __DIR__ . '/../..' . '/classes/Cli/CliCommands.php',
         'Atum\\Components\\AtumAdminModal' => __DIR__ . '/../..' . '/classes/Components/AtumAdminModal.php',
         'Atum\\Components\\AtumAdminNotices' => __DIR__ . '/../..' . '/classes/Components/AtumAdminNotices.php',
+        'Atum\\Components\\AtumAssets' => __DIR__ . '/../..' . '/classes/Components/AtumAssets.php',
         'Atum\\Components\\AtumBarcodes' => __DIR__ . '/../..' . '/classes/Components/AtumBarcodes.php',
-        'Atum\\Components\\AtumCache' => __DIR__ . '/../..' . '/classes/Components/AtumCache.php',
         'Atum\\Components\\AtumCalculatedProps' => __DIR__ . '/../..' . '/classes/Components/AtumCalculatedProps.php',
         'Atum\\Components\\AtumCapabilities' => __DIR__ . '/../..' . '/classes/Components/AtumCapabilities.php',
         'Atum\\Components\\AtumColors' => __DIR__ . '/../..' . '/classes/Components/AtumColors.php',
@@ -187,7 +193,6 @@ class ComposerStaticInitb5eb915d7249c0bad4569c36eaa9393c
         'Atum\\Dashboard\\Widgets\\Sales' => __DIR__ . '/../..' . '/classes/Dashboard/Widgets/Sales.php',
         'Atum\\Dashboard\\Widgets\\Statistics' => __DIR__ . '/../..' . '/classes/Dashboard/Widgets/Statistics.php',
         'Atum\\Dashboard\\Widgets\\StockControl' => __DIR__ . '/../..' . '/classes/Dashboard/Widgets/StockControl.php',
-        'Atum\\Dashboard\\Widgets\\Videos' => __DIR__ . '/../..' . '/classes/Dashboard/Widgets/Videos.php',
         'Atum\\DataExport\\DataExport' => __DIR__ . '/../..' . '/classes/DataExport/DataExport.php',
         'Atum\\DataExport\\Reports\\HtmlReport' => __DIR__ . '/../..' . '/classes/DataExport/Reports/HtmlReport.php',
         'Atum\\InboundStock\\InboundStock' => __DIR__ . '/../..' . '/classes/InboundStock/InboundStock.php',
@@ -198,6 +203,7 @@ class ComposerStaticInitb5eb915d7249c0bad4569c36eaa9393c
         'Atum\\Inc\\Hooks' => __DIR__ . '/../..' . '/classes/Inc/Hooks.php',
         'Atum\\Inc\\Main' => __DIR__ . '/../..' . '/classes/Inc/Main.php',
         'Atum\\Inc\\Upgrade' => __DIR__ . '/../..' . '/classes/Inc/Upgrade.php',
+        'Atum\\Inc\\ViteDevServer' => __DIR__ . '/../..' . '/classes/Inc/ViteDevServer.php',
         'Atum\\Integrations\\Wpml' => __DIR__ . '/../..' . '/classes/Integrations/Wpml.php',
         'Atum\\InventoryLogs\\InventoryLogs' => __DIR__ . '/../..' . '/classes/InventoryLogs/InventoryLogs.php',
         'Atum\\InventoryLogs\\Items\\LogItemFee' => __DIR__ . '/../..' . '/classes/InventoryLogs/Items/LogItemFee.php',
@@ -277,12 +283,6 @@ class ComposerStaticInitb5eb915d7249c0bad4569c36eaa9393c
         'DeepCopy\\TypeFilter\\Spl\\SplDoublyLinkedListFilter' => __DIR__ . '/..' . '/myclabs/deep-copy/src/DeepCopy/TypeFilter/Spl/SplDoublyLinkedListFilter.php',
         'DeepCopy\\TypeFilter\\TypeFilter' => __DIR__ . '/..' . '/myclabs/deep-copy/src/DeepCopy/TypeFilter/TypeFilter.php',
         'DeepCopy\\TypeMatcher\\TypeMatcher' => __DIR__ . '/..' . '/myclabs/deep-copy/src/DeepCopy/TypeMatcher/TypeMatcher.php',
-        'Madcoda\\Youtube\\Constants' => __DIR__ . '/..' . '/madcoda/php-youtube-api/src/Constants.php',
-        'Madcoda\\Youtube\\Facades\\Youtube' => __DIR__ . '/..' . '/madcoda/php-youtube-api/src/Facades/Youtube.php',
-        'Madcoda\\Youtube\\Youtube' => __DIR__ . '/..' . '/madcoda/php-youtube-api/src/Youtube.php',
-        'Madcoda\\Youtube\\YoutubeServiceProviderLaravel4' => __DIR__ . '/..' . '/madcoda/php-youtube-api/src/YoutubeServiceProviderLaravel4.php',
-        'Madcoda\\Youtube\\YoutubeServiceProviderLaravel5' => __DIR__ . '/..' . '/madcoda/php-youtube-api/src/YoutubeServiceProviderLaravel5.php',
-        'Madcoda\\compat' => __DIR__ . '/..' . '/madcoda/php-youtube-api/src/compat.php',
         'Mpdf\\AssetFetcher' => __DIR__ . '/..' . '/mpdf/mpdf/src/AssetFetcher.php',
         'Mpdf\\Barcode' => __DIR__ . '/..' . '/mpdf/mpdf/src/Barcode.php',
         'Mpdf\\Barcode\\AbstractBarcode' => __DIR__ . '/..' . '/mpdf/mpdf/src/Barcode/AbstractBarcode.php',
@@ -537,6 +537,11 @@ class ComposerStaticInitb5eb915d7249c0bad4569c36eaa9393c
         'Psr\\Log\\Test\\DummyTest' => __DIR__ . '/..' . '/psr/log/Psr/Log/Test/DummyTest.php',
         'Psr\\Log\\Test\\LoggerInterfaceTest' => __DIR__ . '/..' . '/psr/log/Psr/Log/Test/LoggerInterfaceTest.php',
         'Psr\\Log\\Test\\TestLogger' => __DIR__ . '/..' . '/psr/log/Psr/Log/Test/TestLogger.php',
+        'ViteWordPress\\DevServer' => __DIR__ . '/..' . '/mrottow/vite-wordpress/src/DevServer.php',
+        'ViteWordPress\\DevServerInterface' => __DIR__ . '/..' . '/mrottow/vite-wordpress/src/DevServerInterface.php',
+        'ViteWordPress\\Manifest' => __DIR__ . '/..' . '/mrottow/vite-wordpress/src/Manifest.php',
+        'ViteWordPress\\ManifestResolver' => __DIR__ . '/..' . '/mrottow/vite-wordpress/src/ManifestResolver.php',
+        'ViteWordPress\\ManifestResolverInterface' => __DIR__ . '/..' . '/mrottow/vite-wordpress/src/ManifestResolverInterface.php',
         'Westsworld\\TimeAgo' => __DIR__ . '/..' . '/jimmiw/php-time-ago/src/Westsworld/TimeAgo.php',
         'Westsworld\\TimeAgo\\Language' => __DIR__ . '/..' . '/jimmiw/php-time-ago/src/Westsworld/TimeAgo/Language.php',
         'Westsworld\\TimeAgo\\Translations\\Ar' => __DIR__ . '/..' . '/jimmiw/php-time-ago/src/Westsworld/TimeAgo/Translations/Ar.php',

@@ -14,6 +14,7 @@ namespace Atum\Orders;
 
 defined( 'ABSPATH' ) || die;
 
+use Atum\Components\AtumAssets;
 use Atum\Inc\Helpers;
 
 
@@ -129,17 +130,15 @@ class CheckOrderPrices {
 				return;
 			}
 
-			wp_register_style( 'atum-check-orders', ATUM_URL . 'assets/css/atum-check-orders.css', [], ATUM_VERSION );
+			AtumAssets::register_style( 'atum-check-orders', 'atum-check-orders.css' );
 			wp_enqueue_style( 'atum-check-orders' );
 
-			wp_register_script( 'atum-check-orders', ATUM_URL . 'assets/js/build/atum-check-orders.js', [ 'jquery' ], ATUM_VERSION, TRUE );
-
+			AtumAssets::register_script( 'atum-check-orders', 'atum-check-orders.js', [ 'jquery' ] );
 			wp_localize_script( 'atum-check-orders', 'atumCheckOrders', array(
 				'checkingPrices'   => __( 'Checking prices...', ATUM_TEXT_DOMAIN ),
 				'checkOrderPrices' => __( 'Check order prices', ATUM_TEXT_DOMAIN ),
 				'nonce'            => wp_create_nonce( 'atum-check-order-prices-nonce' ),
 			) );
-
 			wp_enqueue_script( 'atum-check-orders' );
 
 		}
@@ -154,6 +153,10 @@ class CheckOrderPrices {
 	public function check_order_prices() {
 
 		check_ajax_referer( 'atum-check-order-prices-nonce', 'security' );
+
+		if ( ! current_user_can( 'edit_shop_orders' ) ) {
+			wp_send_json_error();
+		}
 
 		parse_str( ltrim( $_POST['query_string'], '?' ), $query_args );
 
@@ -171,7 +174,9 @@ class CheckOrderPrices {
 			$tooltip  = sprintf( _n( 'There is %d order with mismatching prices.', 'There are %d orders with mismatching prices.', $mismatching_orders_count, ATUM_TEXT_DOMAIN ), $mismatching_orders_count );
 			$tooltip .= '<br>' . _n( 'Click to show the order', 'Click to show the orders', $mismatching_orders_count, ATUM_TEXT_DOMAIN );
 
-			wp_send_json_success( '<a href="' . $_POST['query_string'] . '&atum_show_mismatching=yes" id="atum-mismatching-orders" class="atum-tooltip" title="' . esc_attr( $tooltip ) . '">' . $mismatching_orders_count . '</a>' );
+			$mismatching_url = esc_url( wp_unslash( $_POST['query_string'] ) . '&atum_show_mismatching=yes' );
+
+			wp_send_json_success( '<a href="' . $mismatching_url . '" id="atum-mismatching-orders" class="atum-tooltip" title="' . esc_attr( $tooltip ) . '">' . $mismatching_orders_count . '</a>' );
 
 		}
 

@@ -79,9 +79,6 @@ class Main {
 	 */
 	private function __construct() {
 
-		// Make the ATUM cache group, non-persistent.
-		wp_cache_add_non_persistent_groups( ATUM_TEXT_DOMAIN );
-		
 		if ( is_admin() ) {
 			$this->main_admin_hooks();
 		}
@@ -336,7 +333,7 @@ class Main {
 			ATUM_PREFIX . 'view_admin_menu',
 			self::$main_menu_item['slug'],
 			'',
-			ATUM_URL . 'assets/images/atum-icon.svg',
+			esc_url( ATUM_DIST_URL ) . 'images/atum-icon.svg',
 			58 // Add the menu just after the WC Products.
 		);
 
@@ -445,7 +442,7 @@ class Main {
 		// Add the main menu item.
 		$wp_admin_bar->add_node( array(
 			'id'    => self::$main_menu_item['slug'],
-			'title' => '<span class="ab-icon"><img src="' . ATUM_URL . 'assets/images/atum-icon.svg" style="padding-top: 2px" alt="ATUM"></span><span class="ab-label">ATUM</span>',
+			'title' => '<span class="ab-icon"><img src="' . esc_url( ATUM_DIST_URL ) . 'images/atum-icon.svg" style="padding-top: 2px" alt="ATUM"></span><span class="ab-label">ATUM</span>',
 			'href'  => admin_url( 'admin.php?page=' . self::$main_menu_item['slug'] ),
 		) );
 
