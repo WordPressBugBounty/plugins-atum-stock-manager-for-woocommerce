@@ -254,7 +254,7 @@ class HtmlReport extends ListTable {
 			$attributes = wc_get_product_variation_attributes( $this->get_current_list_item_id() );
 
 			if ( ! empty( $attributes ) ) {
-				$title = ucfirst( implode( ' ', $attributes ) );
+				$title = Helpers::get_variation_attributes_title( $attributes, $this->list_item );
 			}
 			
 		}

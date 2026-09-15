@@ -27,7 +27,6 @@ if ( wc_tax_enabled() ) {
 
 $currency       = $atum_order->currency;
 $post_type      = get_post_type_object( get_post_type( $atum_order->get_id() ) );
-$post_search    = PurchaseOrders::get_post_type() === $post_type->name ? 'data-limit="' . $atum_order->get_id() . '"' : '';
 $added_products = array();
 ?>
 
@@ -277,7 +276,6 @@ $added_products = array();
 								data-placeholder="<?php esc_attr_e( 'Search for a product&hellip;', ATUM_TEXT_DOMAIN ); ?>"
 								data-action="atum_json_search_products"
 								data-exclude="<?php echo esc_attr( implode( ',', $added_products ) ); ?>"
-								<?php echo $post_search; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
 							></select>
 						</form>
 					</article>

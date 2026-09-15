@@ -87,6 +87,7 @@ return array(
     'Atum\\Components\\AtumListTables\\AtumListPage' => $baseDir . '/classes/Components/AtumListTables/AtumListPage.php',
     'Atum\\Components\\AtumListTables\\AtumListTable' => $baseDir . '/classes/Components/AtumListTables/AtumListTable.php',
     'Atum\\Components\\AtumListTables\\AtumUncontrolledListTable' => $baseDir . '/classes/Components/AtumListTables/AtumUncontrolledListTable.php',
+    'Atum\\Components\\AtumListTables\\ListTableViewIds' => $baseDir . '/classes/Components/AtumListTables/ListTableViewIds.php',
     'Atum\\Components\\AtumMarketingPopup' => $baseDir . '/classes/Components/AtumMarketingPopup.php',
     'Atum\\Components\\AtumOrders\\AtumComments' => $baseDir . '/classes/Components/AtumOrders/AtumComments.php',
     'Atum\\Components\\AtumOrders\\AtumOrderPostType' => $baseDir . '/classes/Components/AtumOrders/AtumOrderPostType.php',

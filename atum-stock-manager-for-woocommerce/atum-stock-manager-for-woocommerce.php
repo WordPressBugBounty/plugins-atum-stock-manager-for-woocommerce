@@ -10,15 +10,15 @@
  * Requires Plugins:     woocommerce
  * Plugin URI:           https://stockmanagementlabs.com/
  * Description:          The ultimate stock management plugin for serious WooCommerce sellers
- * Version:              2.0.3.2
+ * Version:              2.0.4
  * Author:               Stock Management Labs™
  * Author URI:           https://stockmanagementlabs.com/
  * Contributors:         BE REBEL - https://berebel.studio
  * Requires at least:    6.8
- * Tested up to:         7.0
+ * Tested up to:         7.1
  * Requires PHP:         7.4
  * WC requires at least: 8.0
- * WC tested up to:      10.9.4
+ * WC tested up to:      11.1.0
  * Text Domain:          atum-stock-manager-for-woocommerce
  * Domain Path:          /languages
  * License:              GPLv2 or later
@@ -28,7 +28,7 @@
 defined( 'ABSPATH' ) || die;
 
 if ( ! defined( 'ATUM_VERSION' ) ) {
-	define( 'ATUM_VERSION', '2.0.3.2' );
+	define( 'ATUM_VERSION', '2.0.4' );
 }
 
 if ( ! defined( 'ATUM_WC_MINIMUM_VERSION' ) ) {

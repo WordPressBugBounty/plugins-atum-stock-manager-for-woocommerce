@@ -3,11 +3,11 @@
 Contributors: stockmanagementlabs, salvamb, japiera, agimeno82, dorquium
 Tags: woocommerce stock management, suppliers, purchase orders, inbound stock, inventory logs
 Requires at least: 6.8
-Tested up to: 7.0
+Tested up to: 7.1
 Requires PHP: 7.4
 WC requires at least: 6.0
-WC tested up to: 10.9.4
-Stable tag: 2.0.3.2
+WC tested up to: 11.1.0
+Stable tag: 2.0.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -213,6 +213,38 @@ We officially support: WooCommerce Product Bundles, WooCommerce Subscriptions, W
 
 
 == Changelog ==
+
+---
+
+`2.0.4`
+
+*2026-09-15*
+
+**Changes**
+
+* Changed capability used to activate licenses.
+* Show a message when the staging sites activation limit has been reached.
+* Do not show the filter button on the bottom bar in list tables.
+
+**Fixes**
+
+* Fixed string+int TypeError in "maybe_update_variable_calc_prop" under a persisting object cache.
+* Fixed new datepicker wasn't visible in modals.
+* Fixed the edit button not visible when a lot of countries set in MI popovers.
+* Fixed some calculated props not being calculated under some time zones.
+* Fixed multiple items cannot be added to a PO on WC 11.1+.
+* Several WC 11.1+ compatibility fixes.
+* Fixed sale schedule dates shifting when the site timezone is not UTC.
+* Fixed a sticky header issue on Stock Central.
+* Fixed hour and minute input fields' width in Inventory Logs.
+* Fixed MI columns searches in Stock Central.
+* Make sure an array of add-ons exists before using it.
+* Fixed the manual search-by-column field styling in list tables.
+* Fixed select2 CSS.
+* Fixed loading addon integrations when any addon does not meet its minimum requirements.
+* Fixed list tables view counters when there are uncontrolled products.
+* Fixed list table totals now counting on first load.
+* Fixed variation names with "any" value set in List Tables.
 
 ---
 

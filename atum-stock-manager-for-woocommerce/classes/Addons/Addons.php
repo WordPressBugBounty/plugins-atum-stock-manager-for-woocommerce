@@ -1939,7 +1939,7 @@ final class Addons {
 
 		$keys = self::get_keys();
 
-		if ( ! empty( $key ) ) {
+		if ( ! empty( $keys ) ) {
 			foreach ( $keys as $key ) {
 				if ( ! empty( $key['key'] ) && ! empty( $key['status'] ) && 'valid' === $key['status'] ) {
 					return TRUE;

@@ -13,7 +13,9 @@ defined( 'ABSPATH' ) || die;
 use Atum\Addons\Addons;
 
 $addon_folder         = $addon['info']['folder'] ?? '';
-$addon_status         = Addons::get_addon_status( $addon['info']['title'], $addon['info']['slug'], $addon_folder );
+$addon_title          = $addon['info']['title'] ?? '';
+$addon_slug           = $addon['info']['slug'] ?? '';
+$addon_status         = Addons::get_addon_status( $addon_title, $addon_slug, $addon_folder );
 $more_details_link    = '<a href="' . $addon['info']['link'] . '" target="_blank">' . __( 'Add-on Details', ATUM_TEXT_DOMAIN ) . '</a>';
 $is_coming_soon_addon = isset( $addon['info']['coming_soon'] ) && $addon['info']['coming_soon'];
 $is_beta              = isset( $addon['info']['is_beta'] ) && $addon['info']['is_beta'];
@@ -26,13 +28,13 @@ if ( $is_coming_soon_addon ) :
 	$addon_status->classes    = [ 'coming-soon' ];
 	$addon_status->label_text = __( 'Coming Soon', ATUM_TEXT_DOMAIN );
 elseif ( $addon_status->installed ) :
-	$current_version = Addons::get_installed_version( $addon['info']['title'] );
+	$current_version = Addons::get_installed_version( $addon_title );
 endif;
 ?>
 
 <div class="atum-addon <?php echo esc_attr( $addon_status->status ) ?><?php if ( $addon_status->installed && 'valid' === $addon_status->status ) echo ' active' ?>
-	<?php if ( $addon_status->key ) echo ' with-key' ?>" data-addon="<?php echo esc_attr( $addon['info']['title'] ) ?>"
-	data-addon-slug="<?php echo esc_attr( $addon['info']['slug'] ) ?>"
+	<?php if ( $addon_status->key ) echo ' with-key' ?>" data-addon="<?php echo esc_attr( $addon_title ) ?>"
+	data-addon-slug="<?php echo esc_attr( $addon_slug ) ?>"
 >
 
 	<a class="more-details" href="<?php echo esc_url( $addon['info']['link'] ) ?>" target="_blank">
@@ -134,7 +136,7 @@ endif;
 
 					<?php endif; ?>
 
-					<?php if ( ! $is_coming_soon_addon && current_user_can( 'install_plugins' ) ) : ?>
+					<?php if ( ! $is_coming_soon_addon && current_user_can( 'activate_plugins' ) ) : ?>
 
 						<?php if ( empty( $addon_status->key ) || 'inactive' === $addon_status->status ) : ?>
 							<button type="button" class="more-details btn btn-success show-key"><?php esc_html_e( 'Enter License', ATUM_TEXT_DOMAIN ); ?></button>
@@ -145,7 +147,7 @@ endif;
 					<?php endif; ?>
 				</div>
 
-				<?php if ( ! $is_coming_soon_addon && current_user_can( 'install_plugins' ) ) : ?>
+				<?php if ( ! $is_coming_soon_addon && current_user_can( 'activate_plugins' ) ) : ?>
 					<div class="addon-key"<?php echo ( ! $addon_status->installed && ! empty( $addon_status->key ) ) ? ' style="display:block"' : '' ?>>
 						<div class="wrapper">
 							<?php if ( ! $addon_status->installed || empty( $addon_status->key ) ) : ?>

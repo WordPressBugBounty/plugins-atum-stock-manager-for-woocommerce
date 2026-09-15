@@ -594,7 +594,7 @@ final class Helpers {
 		$sold_last_days   = AtumCache::get_cache( $cache_key, $has_cache );
 
 		if ( $has_cache ) {
-			return $sold_last_days;
+			return ( NULL === $sold_last_days || '' === $sold_last_days ) ? 0 : $sold_last_days;
 		}
 
 		if ( ! empty( $colums ) ) {
@@ -808,6 +808,7 @@ final class Helpers {
 				// When only 1 single result is requested.
 				if ( count( $colums ) === 1 ) {
 					$items_sold = $wpdb->get_var( $query ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+					$items_sold = NULL === $items_sold || '' === $items_sold ? 0 : $items_sold;
 				}
 				// Multiple results requested.
 				else {
@@ -829,6 +830,10 @@ final class Helpers {
 
 			}
 
+		}
+
+		if ( NULL === $items_sold || '' === $items_sold ) {
+			$items_sold = 0;
 		}
 
 		AtumCache::set_cache( $cache_key, $items_sold );
@@ -1431,6 +1436,49 @@ final class Helpers {
 	 */
 	public static function is_child_type( $type ) {
 		return in_array( $type, Globals::get_child_product_types() );
+	}
+
+	/**
+	 * Build a list-table title from variation attributes
+	 *
+	 * WooCommerce stores "Any" as an empty string, so imploding the raw values
+	 * would leave Stock Central (and similar lists) with a blank child name.
+	 *
+	 * @since 2.0.5
+	 *
+	 * @param array            $attributes Attribute name => value pairs.
+	 * @param \WC_Product|null $product    Optional. Used to resolve attribute labels.
+	 * @param string           $separator  Optional. Glue between attribute parts.
+	 *
+	 * @return string
+	 */
+	public static function get_variation_attributes_title( $attributes, $product = NULL, $separator = ' ' ) {
+
+		if ( empty( $attributes ) || ! is_array( $attributes ) ) {
+			return '';
+		}
+
+		$title_parts = [];
+
+		foreach ( $attributes as $attribute_name => $attribute_value ) {
+
+			$attribute_name = preg_replace( '/^attribute_/', '', $attribute_name );
+
+			if ( '' === $attribute_value ) {
+				$title_parts[] = sprintf(
+					/* translators: %s: product attribute label */
+					__( 'Any %s', ATUM_TEXT_DOMAIN ),
+					wc_attribute_label( $attribute_name, $product )
+				);
+			}
+			else {
+				$title_parts[] = ucfirst( rawurldecode( (string) $attribute_value ) );
+			}
+
+		}
+
+		return implode( $separator, $title_parts );
+
 	}
 
 	/**
@@ -2425,18 +2473,22 @@ final class Helpers {
 
 					// Check for sale dates.
 					if ( isset( $product_data['_sale_price_dates_from'], $product_data['_sale_price_dates_to'] ) ) {
-						
-						$date_from = wc_clean( $product_data['_sale_price_dates_from'] );
-						$date_to   = wc_clean( $product_data['_sale_price_dates_to'] );
-						$now       = self::get_wc_time( self::get_current_timestamp() );
 
-						$date_from     = $date_from ? self::get_wc_time( $date_from ) : '';
-						$date_to       = $date_to ? self::get_wc_time( $date_to ) : '';
+						$date_from     = wc_clean( $product_data['_sale_price_dates_from'] );
+						$date_to       = wc_clean( $product_data['_sale_price_dates_to'] );
+						$now           = self::get_wc_time( self::get_current_timestamp() );
 						$date_from_str = $date_to_str = '';
 
 						if ( $date_to && ! $date_from ) {
-							$date_from = $now;
+							$date_from = date_i18n( 'Y-m-d' );
 						}
+
+						// WC set_date_prop treats numeric values as UTC. getOffsetTimestamp() is local-adjusted,
+						// so passing it shifted sale dates on UTC− sites (and moved the window by gmt_offset on UTC+).
+						// Match the product editor: local datetime strings, from 00:00:00 / to 23:59:59.
+						$date_from_local = $date_from ? date( 'Y-m-d 00:00:00', strtotime( $date_from ) ) : ''; // phpcs:ignore WordPress.DateTime.RestrictedFunctions.date_date
+						$date_to_local   = $date_to ? date( 'Y-m-d 23:59:59', strtotime( $date_to ) ) : ''; // phpcs:ignore WordPress.DateTime.RestrictedFunctions.date_date
+						$date_to_obj     = $date_to ? self::get_wc_time( $date_to ) : '';
 
 						// Update price if on sale.
 						if ( $product->is_on_sale( 'edit' ) ) {
@@ -2444,20 +2496,20 @@ final class Helpers {
 							$product->set_price( $sale_price );
 
 							if ( $date_to ) {
-								$date_from_str = ! empty( $date_from ) ? $date_from->getOffsetTimestamp() : '';
-								$date_to_str   = ! empty( $date_to ) ? $date_to->getOffsetTimestamp() : '';
+								$date_from_str = $date_from_local;
+								$date_to_str   = $date_to_local;
 							}
 
 						}
 						else {
-							
+
 							$product->set_price( $regular_price );
 
-							if ( ! $date_to || ( ! empty( $date_to ) && 0 < $date_to->diff( $now ) ) ) {
-								$date_from_str = ! empty( $date_from ) ? $date_from->getOffsetTimestamp() : '';
-								$date_to_str   = ! empty( $date_to ) ? $date_to->getOffsetTimestamp() : '';
+							if ( ! $date_to || ( $date_to_obj && 0 < $date_to_obj->diff( $now ) ) ) {
+								$date_from_str = $date_from_local;
+								$date_to_str   = $date_to_local;
 							}
-							
+
 						}
 
 						$product->set_date_on_sale_from( $date_from_str );
@@ -3265,7 +3317,7 @@ final class Helpers {
 
 		// sale_day option means actually Days to reorder.
 		$days_to_reorder = absint( self::get_option( 'sale_days', Settings::DEFAULT_SALE_DAYS ) );
-		$current_time    = self::date_format( '', TRUE, TRUE );
+		$current_time    = self::date_format();
 		$restock_needed  = FALSE;
 
 		if ( $product->managing_stock() && 'instock' === $product->get_stock_status() ) {
@@ -3448,16 +3500,16 @@ final class Helpers {
 	 *
 	 * @param string|int $date         Optional. The date to format. Can be an English date or a timestamp (with second param as true).
 	 * @param bool       $is_timestamp Optional. Whether the first param is a Unix timestamp.
-	 * @param bool       $gmt_date     Optional. Whether to return a GMT formatted date.
+	 * @param bool       $gmt_date     Optional. Whether to return a GMT formatted date. When $date is empty, the current timestamp also respects this flag.
 	 * @param string     $format       Optional. A valid PHP date format. By default is 'Y-m-d H:i:s'.
 	 *
 	 * @return string                   The formatted date
 	 */
 	public static function date_format( $date = '', $is_timestamp = TRUE, $gmt_date = FALSE, $format = 'Y-m-d H:i:s' ) {
 
-		// If no date is passed, get the current UNIX timestamp.
+		// If no date is passed, get the current timestamp (GMT when $gmt_date is true).
 		if ( ! $date ) {
-			$date = self::get_current_timestamp();
+			$date = self::get_current_timestamp( $gmt_date );
 		}
 		elseif ( ! $is_timestamp ) {
 			$date = strtotime( $date );

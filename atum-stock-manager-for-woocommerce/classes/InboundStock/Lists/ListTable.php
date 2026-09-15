@@ -219,7 +219,7 @@ class ListTable extends AtumListTable {
 
 			$attributes = wc_get_product_variation_attributes( $product_id );
 			if ( ! empty( $attributes ) ) {
-				$title .= ' - ' . ucfirst( implode( ' - ', $attributes ) );
+				$title .= ' - ' . Helpers::get_variation_attributes_title( $attributes, $this->list_item, ' - ' );
 			}
 
 			// Get the variable product ID to get the right link.

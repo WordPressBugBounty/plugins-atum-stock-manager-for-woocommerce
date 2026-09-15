@@ -1044,6 +1044,10 @@ final class Ajax {
 						$message = sprintf( __( 'This appears to be an invalid license key for %s.', ATUM_TEXT_DOMAIN ), $addon_name );
 						break;
 
+					case 'staging_limit_reached':
+						$message = __( 'This license already has five active staging sites. Deactivate one staging site before adding another.', ATUM_TEXT_DOMAIN );
+						break;
+
 					case 'no_activations_left':
 						$message = __( 'Your license key has reached its activation limit.', ATUM_TEXT_DOMAIN );
 						break;
@@ -1399,8 +1403,8 @@ final class Ajax {
 		}
 
 		$limit       = ! empty( $_GET['limit'] ) ? absint( $_GET['limit'] ) : absint( apply_filters( 'atum/ajax/search_products/json_search_limit', 30 ) );
-		$include_ids = ! empty( $_GET['include'] ) ? explode( ',', wp_unslash( $_GET['include'] ) ) : [];
-		$exclude_ids = ! empty( $_GET['exclude'] ) ? explode( ',', wp_unslash( $_GET['exclude'] ) ) : [];
+		$include_ids = ! empty( $_GET['include'] ) ? ( is_array( $_GET['include'] ) ? wp_unslash( $_GET['include'] ) : explode( ',', wp_unslash( $_GET['include'] ) ) ) : [];
+		$exclude_ids = ! empty( $_GET['exclude'] ) ? ( is_array( $_GET['exclude'] ) ? wp_unslash( $_GET['exclude'] ) : explode( ',', wp_unslash( $_GET['exclude'] ) ) ) : [];
 
 		$ids = Helpers::search_products( $term, '', TRUE, FALSE, $limit, $include_ids, $exclude_ids );
 		
@@ -1409,7 +1413,7 @@ final class Ajax {
 		if ( ! $post_id ) {
 
 			$url = wp_parse_url( wp_get_referer() );
-			parse_str( $url['query'], $url_query );
+			parse_str( $url['query'] ?? '', $url_query );
 
 			if ( ! empty( $url_query['post'] ) ) {
 				$post_id = absint( $url_query['post'] );

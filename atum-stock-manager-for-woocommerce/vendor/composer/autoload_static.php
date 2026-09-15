@@ -12,77 +12,77 @@ class ComposerStaticInitb5eb915d7249c0bad4569c36eaa9393c
     );
 
     public static $prefixLengthsPsr4 = array (
-        's' =>
+        's' => 
         array (
             'setasign\\Fpdi\\' => 14,
         ),
-        'W' =>
+        'W' => 
         array (
             'Westsworld\\' => 11,
         ),
-        'V' =>
+        'V' => 
         array (
             'ViteWordPress\\' => 14,
         ),
-        'P' =>
+        'P' => 
         array (
             'Psr\\Log\\' => 8,
             'Psr\\Http\\Message\\' => 17,
         ),
-        'M' =>
+        'M' => 
         array (
             'Mpdf\\PsrLogAwareTrait\\' => 22,
             'Mpdf\\PsrHttpMessageShim\\' => 24,
             'Mpdf\\' => 5,
         ),
-        'D' =>
+        'D' => 
         array (
             'DeepCopy\\' => 9,
         ),
-        'A' =>
+        'A' => 
         array (
             'Atum\\' => 5,
         ),
     );
 
     public static $prefixDirsPsr4 = array (
-        'setasign\\Fpdi\\' =>
+        'setasign\\Fpdi\\' => 
         array (
             0 => __DIR__ . '/..' . '/setasign/fpdi/src',
         ),
-        'Westsworld\\' =>
+        'Westsworld\\' => 
         array (
             0 => __DIR__ . '/..' . '/jimmiw/php-time-ago/src/Westsworld',
         ),
-        'ViteWordPress\\' =>
+        'ViteWordPress\\' => 
         array (
             0 => __DIR__ . '/..' . '/mrottow/vite-wordpress/src',
         ),
-        'Psr\\Log\\' =>
+        'Psr\\Log\\' => 
         array (
             0 => __DIR__ . '/..' . '/psr/log/Psr/Log',
         ),
-        'Psr\\Http\\Message\\' =>
+        'Psr\\Http\\Message\\' => 
         array (
             0 => __DIR__ . '/..' . '/psr/http-message/src',
         ),
-        'Mpdf\\PsrLogAwareTrait\\' =>
+        'Mpdf\\PsrLogAwareTrait\\' => 
         array (
             0 => __DIR__ . '/..' . '/mpdf/psr-log-aware-trait/src',
         ),
-        'Mpdf\\PsrHttpMessageShim\\' =>
+        'Mpdf\\PsrHttpMessageShim\\' => 
         array (
             0 => __DIR__ . '/..' . '/mpdf/psr-http-message-shim/src',
         ),
-        'Mpdf\\' =>
+        'Mpdf\\' => 
         array (
             0 => __DIR__ . '/..' . '/mpdf/mpdf/src',
         ),
-        'DeepCopy\\' =>
+        'DeepCopy\\' => 
         array (
             0 => __DIR__ . '/..' . '/myclabs/deep-copy/src/DeepCopy',
         ),
-        'Atum\\' =>
+        'Atum\\' => 
         array (
             0 => __DIR__ . '/../..' . '/classes',
         ),
@@ -170,6 +170,7 @@ class ComposerStaticInitb5eb915d7249c0bad4569c36eaa9393c
         'Atum\\Components\\AtumListTables\\AtumListPage' => __DIR__ . '/../..' . '/classes/Components/AtumListTables/AtumListPage.php',
         'Atum\\Components\\AtumListTables\\AtumListTable' => __DIR__ . '/../..' . '/classes/Components/AtumListTables/AtumListTable.php',
         'Atum\\Components\\AtumListTables\\AtumUncontrolledListTable' => __DIR__ . '/../..' . '/classes/Components/AtumListTables/AtumUncontrolledListTable.php',
+        'Atum\\Components\\AtumListTables\\ListTableViewIds' => __DIR__ . '/../..' . '/classes/Components/AtumListTables/ListTableViewIds.php',
         'Atum\\Components\\AtumMarketingPopup' => __DIR__ . '/../..' . '/classes/Components/AtumMarketingPopup.php',
         'Atum\\Components\\AtumOrders\\AtumComments' => __DIR__ . '/../..' . '/classes/Components/AtumOrders/AtumComments.php',
         'Atum\\Components\\AtumOrders\\AtumOrderPostType' => __DIR__ . '/../..' . '/classes/Components/AtumOrders/AtumOrderPostType.php',

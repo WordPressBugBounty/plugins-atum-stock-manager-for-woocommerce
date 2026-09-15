@@ -277,8 +277,7 @@ class AtumCalculatedProps {
 
 			// WC Orders.
 			default:
-				$timestamp    = Helpers::get_current_timestamp();
-				$current_date = Helpers::date_format( $timestamp );
+				$current_date = Helpers::date_format( Helpers::get_current_timestamp() );
 				$sale_days    = Helpers::get_sold_last_days_option();
 				$product_id   = $product->get_id();
 
@@ -288,12 +287,12 @@ class AtumCalculatedProps {
 				// Set sold today.
 				$sold_today = Helpers::get_sold_last_days( 'today midnight', $current_date, $product_id, [ 'qty' ], FALSE );
 				$product->set_sold_today( $sold_today );
-				self::maybe_update_variable_calc_prop( $product, 'sold_today', $sold_today );
+				self::maybe_update_variable_calc_prop( $product, 'sold_today', $product->get_sold_today() );
 
 				// Sales last days.
 				$sales_last_ndays = Helpers::get_sold_last_days( "$current_date -$sale_days days", $current_date, $product_id, [ 'qty' ], FALSE );
 				$product->set_sales_last_days( $sales_last_ndays );
-				self::maybe_update_variable_calc_prop( $product, 'sales_last_days', $sales_last_ndays );
+				self::maybe_update_variable_calc_prop( $product, 'sales_last_days', $product->get_sales_last_days() );
 
 				// Out stock days.
 				$out_of_stock_days = Helpers::get_product_out_stock_days( $product );
@@ -302,7 +301,7 @@ class AtumCalculatedProps {
 				// Lost sales.
 				$lost_sales = Helpers::get_product_lost_sales( $product, 7, FALSE );
 				$product->set_lost_sales( $lost_sales );
-				self::maybe_update_variable_calc_prop( $product, 'lost_sales', $lost_sales );
+				self::maybe_update_variable_calc_prop( $product, 'lost_sales', $product->get_lost_sales() );
 
 				// Calculated backorders.
 				if ( $product->backorders_allowed() ) {
@@ -315,8 +314,8 @@ class AtumCalculatedProps {
 
 				$product->set_calc_backorders( $calc_backorders );
 
-				// Save the sales update date.
-				$product->set_sales_update_date( $timestamp );
+				// Save the sales update date (WC set_date_prop treats numeric values as UTC).
+				$product->set_sales_update_date( Helpers::get_current_timestamp( TRUE ) );
 
 				break;
 		}
@@ -472,7 +471,7 @@ class AtumCalculatedProps {
 			}
 
 			$children       = $variable_product->get_children();
-			$variable_value = $value;
+			$variable_value = (float) $value;
 
 			foreach ( $children as $child_id ) {
 
@@ -483,7 +482,7 @@ class AtumCalculatedProps {
 				$variation_product = Helpers::get_atum_product( $child_id );
 
 				if ( $variation_product instanceof \WC_Product && is_callable( array( $variation_product, "get_$prop" ) ) ) {
-					$variable_value += call_user_func( array( $variation_product, "get_$prop" ) );
+					$variable_value += (float) call_user_func( array( $variation_product, "get_$prop" ) );
 				}
 
 			}
