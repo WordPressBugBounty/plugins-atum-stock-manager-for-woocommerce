@@ -2015,6 +2015,7 @@ final class Addons {
 				'.local',
 				'.localhost',
 				'.test',
+				'.loc',
 			);
 
 			foreach ( $tlds_to_check as $tld ) {
@@ -2055,6 +2056,11 @@ final class Addons {
 					'*.onrocket.site',
 					'*.singlestaging.com',
 					'*.nxcli.net',
+					'*.nxcli.io',
+					'*.sdhost.eu',
+					'*.cloudwayssites.com',
+					'*.instawp.xyz',
+					'*.ddev.site',
 				);
 
 				foreach ( $subdomains_to_check as $subdomain ) {

@@ -55,13 +55,25 @@ final class Helpers {
 
 		global $wpdb;
 
-		// phpcs:disable WordPress.DB.PreparedSQL
+		// SECURITY: slugs are user-influenced (category, product type, location filters). Each value is
+		// bound with prepare() rather than passed through an HTML escaper; sanitize_title() is not used
+		// here because it would alter slug matching without adding any SQL safety.
+		// The 'strlen' callback only drops empty strings, so the slug "0" is kept.
+		$slug_terms = array_values( array_unique( array_filter( array_map( 'trim', array_map( 'strval', $slug_terms ) ), 'strlen' ) ) );
+
+		if ( ! $slug_terms ) {
+			return array();
+		}
+
+		$placeholders = implode( ', ', array_fill( 0, count( $slug_terms ), '%s' ) );
+
+		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare -- Generated %s placeholders, one per slug.
 		$query = $wpdb->prepare( "
-			SELECT $wpdb->terms.term_id FROM $wpdb->terms 
+			SELECT $wpdb->terms.term_id FROM $wpdb->terms
             INNER JOIN $wpdb->term_taxonomy ON $wpdb->term_taxonomy.term_id = $wpdb->terms.term_id
             WHERE $wpdb->term_taxonomy.taxonomy = %s
-            AND $wpdb->terms.slug IN ('" . implode( "','", array_map( 'esc_attr', $slug_terms ) ) . "')
-        ", $taxonomy );
+            AND $wpdb->terms.slug IN ($placeholders)
+        ", array_merge( array( $taxonomy ), $slug_terms ) );
 		// phpcs:enable
 
 		$search_terms_ids = $wpdb->get_results( $query, ARRAY_A ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
@@ -3805,7 +3817,7 @@ final class Helpers {
 
 		$atum_data_table = $wpdb->prefix . Globals::ATUM_PRODUCT_DATA_TABLE;
 		$post_types      = $include_variations ? [ 'product', 'product_variation' ] : [ 'product' ];
-		$where_clauses   = [ "posts.post_type IN ('" . implode( "','", $post_types ) . "')" ];
+		$where_clauses   = [ $wpdb->prepare( 'posts.post_type IN (' . implode( ',', array_fill( 0, count( $post_types ), '%s' ) ) . ')', $post_types ) ]; // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare -- Generated %s placeholders, one per post type.
 		$limit_query     = '';
 		$join_query      = '';
 		$join_clauses    = [];
@@ -3849,29 +3861,28 @@ final class Helpers {
 				$search_terms = array( $term_group );
 			}
 
-			$term_group_query = $search_and = $variation_query = '';
+			$term_group_query = $search_and = '';
 
 			foreach ( $search_terms as $search_term ) {
 
 				$like = '%' . $wpdb->esc_like( $search_term ) . '%';
 
+				// SECURITY: every fragment is prepared once and the results are concatenated. A prepared
+				// fragment is never used as part of the format string of another prepare() call.
+				$term_query = $wpdb->prepare( '
+					( posts.post_title LIKE %s ) OR ( posts.post_excerpt LIKE %s ) OR
+					( posts.post_content LIKE %s ) OR ( wc_product_meta_lookup.sku LIKE %s ) OR
+					( apd.supplier_sku LIKE %s )
+				', $like, $like, $like, $like, $like );
+
 				// Variations should also search the parent's meta table for fallback fields.
 				if ( $include_variations ) {
-					$variation_query  = $wpdb->prepare( " OR ( wc_product_meta_lookup.sku = '' AND parent_wc_product_meta_lookup.sku LIKE %s ) ", $like );
-					$variation_query .= $wpdb->prepare( " OR ( apd.supplier_sku = '' AND parent_apd.supplier_sku LIKE %s ) ", $like );
+					$term_query .= $wpdb->prepare( " OR ( wc_product_meta_lookup.sku = '' AND parent_wc_product_meta_lookup.sku LIKE %s ) ", $like );
+					$term_query .= $wpdb->prepare( " OR ( apd.supplier_sku = '' AND parent_apd.supplier_sku LIKE %s ) ", $like );
 				}
 
-				// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-				$term_group_query .= $wpdb->prepare( " 
-					$search_and ( 
-						( posts.post_title LIKE %s) OR ( posts.post_excerpt LIKE %s) OR 
-						( posts.post_content LIKE %s ) OR ( wc_product_meta_lookup.sku LIKE %s ) OR 
-						( apd.supplier_sku LIKE %s ) $variation_query 
-					)
-				", $like, $like, $like, $like, $like );
-				// phpcs:enable
-
-				$search_and = ' AND ';
+				$term_group_query .= " $search_and ( $term_query ) ";
+				$search_and        = ' AND ';
 
 			}
 
@@ -3910,20 +3921,18 @@ final class Helpers {
 			$where_clauses[] = '( wc_product_meta_lookup.downloadable = 1 ) ';
 		}
 
-		if ( ! $statuses || ! is_array( $statuses ) ) {
-			$where_clauses[] = "posts.post_status IN ('" . implode( "','", $post_statuses ) . "') ";
-		}
-		else {
-			$where_clauses[] = "posts.post_status IN ('" . implode( "','", $statuses ) . "') ";
-		}
+		// SECURITY: the statuses come from the caller, the ATUM settings or a filter, so every value is bound.
+		// An empty list keeps matching nothing.
+		$status_list         = ( $statuses && is_array( $statuses ) ) ? $statuses : $post_statuses;
+		$status_list         = $status_list ? array_values( $status_list ) : [ '' ];
+		$status_placeholders = implode( ',', array_fill( 0, count( $status_list ), '%s' ) );
+
+		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare -- Generated %s placeholders, one per status.
+		$where_clauses[] = $wpdb->prepare( "posts.post_status IN ($status_placeholders) ", $status_list );
 
 		// Parent statuses.
-		if ( ! $statuses || ! is_array( $statuses ) ) {
-			$where_clauses[] = "( posts.post_parent = 0 OR ( SELECT pp.post_status FROM $wpdb->posts pp WHERE pp.ID = posts.post_parent ) IN ('" . implode( "','", $post_statuses ) . "') ) ";
-		}
-		else {
-			$where_clauses[] = "( posts.post_parent = 0 OR ( SELECT pp.post_status FROM $wpdb->posts pp WHERE pp.ID = posts.post_parent ) IN ('" . implode( "','", $statuses ) . "') ) ";
-		}
+		$where_clauses[] = $wpdb->prepare( "( posts.post_parent = 0 OR ( SELECT pp.post_status FROM $wpdb->posts pp WHERE pp.ID = posts.post_parent ) IN ($status_placeholders) ) ", $status_list );
+		// phpcs:enable
 
 		$where_query = implode( ' AND ', apply_filters( 'atum/search_products/where_clauses', $where_clauses, $term, $type, $include_variations, $statuses, $limit, $include, $exclude ) );
 
@@ -3945,6 +3954,40 @@ final class Helpers {
 		// phpcs:enable
 
 		return wp_parse_id_list( array_merge( wp_list_pluck( $search_results, 'product_id' ), wp_list_pluck( $search_results, 'parent_id' ) ) );
+
+	}
+
+	/**
+	 * Get the reason why a product search did not return any result, so it can be explained to the user.
+	 *
+	 * @since 2.0.5
+	 *
+	 * @param int[]      $matched_ids  The products matching the search term, before applying exclusions or restrictions.
+	 * @param int[]      $excluded_ids The products excluded from the search (i.e. the ones already added to an order).
+	 * @param int[]|null $allowed_ids  The only products that can be returned (i.e. the supplier products). NULL if not restricted.
+	 *
+	 * @return string The notice code ('already_added' or 'not_linked_to_supplier') or an empty string if no notice is needed.
+	 */
+	public static function get_product_search_notice( $matched_ids, $excluded_ids, $allowed_ids = NULL ) {
+
+		$matched_ids  = array_map( 'intval', (array) $matched_ids );
+		$excluded_ids = array_map( 'intval', (array) $excluded_ids );
+		$remaining    = array_diff( $matched_ids, $excluded_ids );
+		$visible      = is_null( $allowed_ids ) ? $remaining : array_intersect( $remaining, array_map( 'intval', (array) $allowed_ids ) );
+
+		if ( ! empty( $visible ) ) {
+			return '';
+		}
+
+		if ( ! empty( array_intersect( $matched_ids, $excluded_ids ) ) ) {
+			return 'already_added';
+		}
+
+		if ( ! is_null( $allowed_ids ) && ! empty( $remaining ) ) {
+			return 'not_linked_to_supplier';
+		}
+
+		return '';
 
 	}
 

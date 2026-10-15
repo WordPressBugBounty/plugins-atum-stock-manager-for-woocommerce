@@ -734,7 +734,23 @@ class ListTable extends AtumListTable {
 		$extra_filter = esc_attr( $_REQUEST['extra_filter'] );
 		$sorted       = FALSE;
 
-		$extra_filter_transient = AtumCache::get_transient_key( 'list_table_extra_filter', $extra_filter );
+		$transient_args = array( $extra_filter );
+
+		// The best/worst seller results depend on the requested dates, so the validated range is part of their
+		// cache key. Rejected dates are left out, so they share the entry of a request without dates.
+		if ( in_array( $extra_filter, array( 'best_seller', 'worst_seller' ), TRUE ) ) {
+
+			$date_from = $this->get_seller_date( 'from' );
+			$date_to   = $this->get_seller_date( 'to' );
+
+			if ( $date_from || $date_to ) {
+				$transient_args[] = $date_from;
+				$transient_args[] = $date_to;
+			}
+
+		}
+
+		$extra_filter_transient = AtumCache::get_transient_key( 'list_table_extra_filter', $transient_args );
 		$filtered_products      = AtumCache::get_transient( $extra_filter_transient );
 
 		if ( empty( $filtered_products ) ) {
@@ -746,13 +762,8 @@ class ListTable extends AtumListTable {
 
 					if ( Helpers::is_using_hpos_tables() ) {
 
-						if ( isset( $_REQUEST['date_from'] ) && ! empty( $_REQUEST['date_from'] ) ) {
-							$dates_where .= " AND orders.date_created_gmt >= '" . $_REQUEST['date_from'] . "' ";
-						}
-
-						if ( isset( $_REQUEST['date_from'] ) && ! empty( $_REQUEST['date_from'] ) ) {
-							$dates_where .= " AND orders.date_created_gmt < '" . $_REQUEST['date_to'] . "' ";
-						}
+						$dates_where .= $this->get_seller_date_clause( 'orders.date_created_gmt', 'from' );
+						$dates_where .= $this->get_seller_date_clause( 'orders.date_created_gmt', 'to' );
 
 						$sql = "
 							SELECT order_item_meta__product_id.meta_value as product_id, order_item_meta__variation_id.meta_value as variation_id,
@@ -771,13 +782,8 @@ class ListTable extends AtumListTable {
 					}
 					else {
 
-						if ( isset( $_REQUEST['date_from'] ) && ! empty( $_REQUEST['date_from'] ) ) {
-							$dates_where .= " AND posts.post_date >= '" . $_REQUEST['date_from'] . "' ";
-						}
-
-						if ( isset( $_REQUEST['date_from'] ) && ! empty( $_REQUEST['date_from'] ) ) {
-							$dates_where .= " AND posts.post_date < '" . $_REQUEST['date_to'] . "' ";
-						}
+						$dates_where .= $this->get_seller_date_clause( 'posts.post_date', 'from' );
+						$dates_where .= $this->get_seller_date_clause( 'posts.post_date', 'to' );
 
 						$sql = "
 							SELECT order_item_meta__product_id.meta_value as product_id, order_item_meta__variation_id.meta_value as variation_id,
@@ -824,13 +830,8 @@ class ListTable extends AtumListTable {
 
 					if ( Helpers::is_using_hpos_tables() ) {
 
-						if ( isset( $_REQUEST['date_from'] ) && ! empty( $_REQUEST['date_from'] ) ) {
-							$dates_where .= ' AND ord.date_created_gmt >= "' . esc_attr( $_REQUEST['date_from'] ) . '" ';
-						}
-
-						if ( isset( $_REQUEST['date_from'] ) && ! empty( $_REQUEST['date_from'] ) ) {
-							$dates_where .= ' AND ord.date_created_gmt < "' . esc_attr( $_REQUEST['date_to'] ) . '" ';
-						}
+						$dates_where .= $this->get_seller_date_clause( 'ord.date_created_gmt', 'from' );
+						$dates_where .= $this->get_seller_date_clause( 'ord.date_created_gmt', 'to' );
 
 						$sql = "
 							SELECT pr.ID product_id, SUM(meta_qty.meta_value) qty
@@ -848,13 +849,8 @@ class ListTable extends AtumListTable {
 					}
 					else {
 
-						if ( isset( $_REQUEST['date_from'] ) && ! empty( $_REQUEST['date_from'] ) ) {
-							$dates_where .= ' AND ord.post_date >= "' . esc_attr( $_REQUEST['date_from'] ) . '" ';
-						}
-
-						if ( isset( $_REQUEST['date_from'] ) && ! empty( $_REQUEST['date_from'] ) ) {
-							$dates_where .= ' AND ord.post_date < "' . esc_attr( $_REQUEST['date_to'] ) . '" ';
-						}
+						$dates_where .= $this->get_seller_date_clause( 'ord.post_date', 'from' );
+						$dates_where .= $this->get_seller_date_clause( 'ord.post_date', 'to' );
 
 						$sql = "
 							SELECT pr.ID product_id, SUM(meta_qty.meta_value) qty
@@ -1178,6 +1174,73 @@ class ListTable extends AtumListTable {
 		else {
 			$query->set( 'post__in', [ -1 ] );
 		}
+
+	}
+
+	/**
+	 * Get one end of the best/worst seller date range from the request.
+	 *
+	 * Only a real Y-m-d value is accepted: "from" reads the date_from request key and "to" reads date_to.
+	 *
+	 * @since 2.0.5
+	 *
+	 * @param string $bound The end of the range. Accepted values: from, to.
+	 *
+	 * @return string The date as Y-m-d, or an empty string for an unknown bound or when the request has no valid date for it.
+	 */
+	protected function get_seller_date( $bound ) {
+
+		if ( ! in_array( $bound, array( 'from', 'to' ), TRUE ) || empty( $_REQUEST[ "date_$bound" ] ) ) {
+			return '';
+		}
+
+		$date = wp_unslash( $_REQUEST[ "date_$bound" ] );
+		$date = is_string( $date ) ? trim( $date ) : '';
+
+		if ( ! preg_match( '/^\d{4}-\d{2}-\d{2}$/', $date ) ) {
+			return '';
+		}
+
+		$parsed = \DateTime::createFromFormat( '!Y-m-d', $date );
+
+		return ( $parsed && $parsed->format( 'Y-m-d' ) === $date ) ? $date : '';
+
+	}
+
+	/**
+	 * Bound date comparison for the best/worst seller filters.
+	 *
+	 * The date comes from get_seller_date() and is bound with %s. The column is fixed by the caller.
+	 * Both ends of the range include their own day: "from" compares `>=` that day and "to" compares
+	 * `<` the following day.
+	 *
+	 * @since 2.0.5
+	 *
+	 * @param string $column Trusted SQL column.
+	 * @param string $bound  The end of the range to build. Accepted values: from, to.
+	 *
+	 * @return string The clause, or an empty string for an unknown bound or when the request has no valid date for it.
+	 */
+	protected function get_seller_date_clause( $column, $bound ) {
+
+		$date = $this->get_seller_date( $bound );
+
+		if ( '' === $date ) {
+			return '';
+		}
+
+		$operator = '>=';
+
+		// The "to" bound must include its own day, so compare against the next day.
+		if ( 'to' === $bound ) {
+			$operator = '<';
+			$date     = \DateTime::createFromFormat( '!Y-m-d', $date )->modify( '+1 day' )->format( 'Y-m-d' );
+		}
+
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Caller-fixed column and one of two fixed operators; the date is bound.
+		return $wpdb->prepare( " AND {$column} {$operator} %s ", $date );
 
 	}
 

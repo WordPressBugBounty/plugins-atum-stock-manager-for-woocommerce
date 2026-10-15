@@ -497,7 +497,10 @@ class AtumCalculatedProps {
 	}
 
 	/**
-	 * Calculates product sales properties from CLI call.
+	 * Privileged entry to update_atum_sales_calc_props (private).
+	 * The AS async runner is admin-ajax, not wp_doing_cron() and not the Tools
+	 * "Run" screen, so Action Scheduler / the expiring-props hooks must be
+	 * listed here or those jobs would finish without writing calculated props.
 	 *
 	 * @since 1.9.3.1
 	 *
@@ -509,7 +512,10 @@ class AtumCalculatedProps {
 		if (
 			'cli' === php_sapi_name() || wp_doing_cron() ||
 			( ! empty( $_REQUEST['page'] ) && ! empty( $_REQUEST['row_action'] ) && 'action-scheduler' === $_REQUEST['page'] && 'run' === $_REQUEST['row_action'] ) ||
-			( wp_doing_ajax() && 'atum_tool_update_calc_props' === $_REQUEST['action'] )
+			( wp_doing_ajax() && 'atum_tool_update_calc_props' === $_REQUEST['action'] ) ||
+			did_action( 'action_scheduler_before_execute' ) ||
+			doing_action( AtumQueues::EXPIRING_PROPS_HOOK ) ||
+			doing_action( AtumQueues::EXPIRING_PROPS_CONTINUE_HOOK )
 		) {
 			self::update_atum_sales_calc_props( $product, $order_type_id );
 		}

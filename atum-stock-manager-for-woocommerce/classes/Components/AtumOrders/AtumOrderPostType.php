@@ -956,6 +956,8 @@ abstract class AtumOrderPostType {
 					'removeItemMeta'            => __( 'Remove this item meta?', ATUM_TEXT_DOMAIN ),
 					'removeItemNotice'          => __( 'Are you sure you want to remove this item?', ATUM_TEXT_DOMAIN ),
 					'roundingPrecision'         => wc_get_rounding_precision(),
+					'searchAlreadyAdded'        => __( 'The products matching your search are already added to this order. Please, edit the existing items instead.', ATUM_TEXT_DOMAIN ),
+					'searchNotFromSupplier'     => __( "The products matching your search aren't linked to this order's supplier.", ATUM_TEXT_DOMAIN ),
 					'stockDecreased'            => __( 'The stock was decreased successfully', ATUM_TEXT_DOMAIN ),
 					'stockIncreased'            => __( 'The stock was increased successfully', ATUM_TEXT_DOMAIN ),
 					'taxesName'                 => __( 'VAT', ATUM_TEXT_DOMAIN ),
@@ -1079,6 +1081,7 @@ abstract class AtumOrderPostType {
 			}
 
 			$prepared_term = '';
+			$search_like   = '';
 
 			// Calculate the prepared term to search for the current group
 			foreach ( $search_terms as $search_term ) {
@@ -1101,7 +1104,11 @@ abstract class AtumOrderPostType {
 
 				);
 
-				$prepared_term = $wpdb->prepare( "%%$search_term%%" );
+				// SECURITY: bind the term as a LIKE value (esc_like + %s) instead of using it as a
+				// prepare() format string. This loop finds which term the current search group belongs to:
+				// $prepared_term is a quoted literal matching the one WordPress emits for that term in the group.
+				$search_like   = '%' . $wpdb->esc_like( $search_term ) . '%';
+				$prepared_term = $wpdb->prepare( '%s', $search_like );
 
 				if ( strpos( $search_group, $prepared_term ) !== FALSE ) {
 					break;
@@ -1109,13 +1116,14 @@ abstract class AtumOrderPostType {
 
 			}
 
-			if ( empty( $prepared_term ) ) {
+			if ( '' === $search_like ) {
 				continue;
 			}
 
 
 			// Add the post_id to the search
-			$id_search = " OR ( $wpdb->posts.ID LIKE '$prepared_term' )";
+			// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Only the posts table name is interpolated; the term is bound.
+			$id_search = $wpdb->prepare( " OR ( $wpdb->posts.ID LIKE %s )", $search_like );
 
 			// Add searching of order item fields
 			$criteria = array(
@@ -1133,18 +1141,18 @@ abstract class AtumOrderPostType {
 				),
 				// The search where is a clause separated by ORs.
 				'search_where' => array(
-					"oi.`order_item_name` LIKE '$prepared_term'", // Search by order item names.
+					$wpdb->prepare( 'oi.`order_item_name` LIKE %s', $search_like ), // Search by order item names.
 				),
 			);
 
 			// Join needed to search by SKU.
 			if ( ! empty( $wpdb->wc_product_meta_lookup ) ) {
 				$criteria['join'][]         = "LEFT JOIN $wpdb->wc_product_meta_lookup AS pml ON oim.`meta_value` = pml.`product_id`";
-				$criteria['search_where'][] = "pml.`sku` LIKE '$prepared_term'"; // Search by SKU.
+				$criteria['search_where'][] = $wpdb->prepare( 'pml.`sku` LIKE %s', $search_like ); // Search by SKU.
 			}
 			else {
 				$criteria['join'][]         = "LEFT JOIN $wpdb->postmeta AS pmoi ON (oim.`meta_value` = pmoi.`post_id` AND pmoi.`meta_key` = '_sku')";
-				$criteria['search_where'][] = "pmoi.`meta_value` LIKE '$prepared_term'"; // Search by SKU.
+				$criteria['search_where'][] = $wpdb->prepare( 'pmoi.`meta_value` LIKE %s', $search_like ); // Search by SKU.
 			}
 
 			// Search by order meta.
@@ -1152,7 +1160,7 @@ abstract class AtumOrderPostType {
 			$search_meta_keys = array_map( 'wc_clean', apply_filters( "atum/$post_type/search_meta_keys", [] ) );
 			if ( ! empty( $search_meta_keys ) ) {
 				$criteria['join'][]         = "LEFT JOIN $wpdb->postmeta AS pmo ON (p.`ID` = pmo.`post_id` AND pmo.`meta_key` IN ('" . implode( "','", array_map( 'esc_sql', $search_meta_keys ) ) . "'))";
-				$criteria['search_where'][] = "pmo.`meta_value` LIKE '$prepared_term'"; // Search by order meta keys.
+				$criteria['search_where'][] = $wpdb->prepare( 'pmo.`meta_value` LIKE %s', $search_like ); // Search by order meta keys.
 			}
 
 			$criteria = apply_filters( "atum/$post_type/extra_search", $criteria, $search_term );

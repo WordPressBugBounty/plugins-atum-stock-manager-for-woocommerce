@@ -33,6 +33,48 @@ class AtumQueues {
 	private static $instance;
 
 	/**
+	 * Group used for the ATUM queues
+	 */
+	const QUEUES_GROUP = 'ATUM';
+
+	/**
+	 * Daily hook that recalculates stale calculated product props
+	 */
+	const EXPIRING_PROPS_HOOK = 'atum/update_expiring_product_props';
+
+	/**
+	 * One-shot continuation hook for the expiring props drain
+	 * NOTE: Must not be added to $recurring_hooks. check_queues() cancels extra ATUM-group
+	 * pendings and would displace the daily schedule if this reused EXPIRING_PROPS_HOOK.
+	 */
+	const EXPIRING_PROPS_CONTINUE_HOOK = 'atum/update_expiring_product_props_continue';
+
+	/**
+	 * Action Scheduler group for the continuation.
+	 * NOTE: Must not be a case-variant of QUEUES_GROUP ('ATUM'). AS group slugs use a
+	 * case-insensitive collation, so 'atum' collapses into 'ATUM' and check_queues() cancels it.
+	 */
+	const EXPIRING_PROPS_CONTINUE_GROUP = 'atum-expiring-props';
+
+	/**
+	 * Default number of stale products processed per expiring-props run
+	 */
+	const EXPIRING_PROPS_BATCH_SIZE = 200;
+
+	/**
+	 * Default seconds allowed for one expiring-props run (AS kills the job around 30s)
+	 */
+	const EXPIRING_PROPS_TIME_BUDGET = 20;
+
+	/**
+	 * Seconds the signature of an async hooks request stays valid after being dispatched
+	 * NOTE: The request is a loopback sent right away, so this only has to cover a busy server and small clock differences.
+	 *
+	 * @since 2.0.5
+	 */
+	const ASYNC_SIGNATURE_LIFETIME = 300;
+
+	/**
 	 * The transient key for checking async queues availability
 	 *
 	 * @var string
@@ -45,7 +87,7 @@ class AtumQueues {
 	 * @var array
 	 */
 	private $recurring_hooks = array(
-		'atum/update_expiring_product_props' => [
+		self::EXPIRING_PROPS_HOOK => [
 			'time'     => 'midnight tomorrow',
 			'interval' => DAY_IN_SECONDS,
 		],
@@ -70,11 +112,6 @@ class AtumQueues {
 	 * @var null|string[]
 	 */
 	private static $allowed_async_callbacks = NULL;
-
-	/**
-	 * Group used for the ATUM queues
-	 */
-	const QUEUES_GROUP = 'ATUM';
 
 	/**
 	 * AtumQueues singleton constructor
@@ -105,7 +142,8 @@ class AtumQueues {
 		}
 
 		// Add the ATUM's recurring hooks.
-		add_action( 'atum/update_expiring_product_props', array( $this, 'action_update_expiring_product_props' ) );
+		add_action( self::EXPIRING_PROPS_HOOK, array( $this, 'action_update_expiring_product_props' ) );
+		add_action( self::EXPIRING_PROPS_CONTINUE_HOOK, array( $this, 'action_update_expiring_product_props' ) );
 
 		// Add the sales calc recurring hook.
 		add_action( 'atum/cron_update_sales_calc_props', array( $this, 'action_update_last_sales_calc_props' ) );
@@ -254,7 +292,7 @@ class AtumQueues {
 	}
 
 	/**
-	 * Recalculate the expiring props for all the products
+	 * Recalculate the expiring props for a batch of stale products
 	 *
 	 * @param string $time Optional. Previous dates will be filtered.
 	 *
@@ -262,30 +300,189 @@ class AtumQueues {
 	 */
 	public function action_update_expiring_product_props( $time = '3 hours ago' ) {
 
-		// Get all the products that weren't updated during the last 3 hours.
+		// The sales-calc cron already recalculates recent WC/PO/IL props when this option is on.
+		if ( 'yes' === Helpers::get_option( 'calc_prop_cron', 'no' ) ) {
+			return;
+		}
+
+		$batch_size = (int) apply_filters( 'atum/queues/expiring_product_props_batch_size', self::EXPIRING_PROPS_BATCH_SIZE );
+		$batch_size = max( 1, $batch_size );
+
+		$time_budget = (int) apply_filters( 'atum/queues/expiring_product_props_time_budget', self::EXPIRING_PROPS_TIME_BUDGET );
+
+		$product_ids = $this->get_outdated_expiring_product_ids( $time, $batch_size );
+
+		if ( empty( $product_ids ) ) {
+			return;
+		}
+
+		$fetched_full_batch = count( $product_ids ) === $batch_size;
+
+		// Enqueue before processing so a mid-batch AS kill still drains the rest.
+		if ( $fetched_full_batch ) {
+			$this->enqueue_expiring_product_props_continuation();
+		}
+
+		$started   = microtime( TRUE );
+		$processed = 0;
+
+		foreach ( $product_ids as $product_id ) {
+
+			$product = Helpers::get_atum_product( $product_id );
+
+			if ( $product ) {
+
+				if ( ModuleManager::is_module_active( 'purchase_orders' ) ) {
+					AtumCalculatedProps::update_atum_sales_calc_props_cli_call( $product, 2 );
+				}
+
+				if ( ModuleManager::is_module_active( 'inventory_logs' ) ) {
+					AtumCalculatedProps::update_atum_sales_calc_props_cli_call( $product, 3 );
+				}
+
+				// WC last so sales_update_date is not cleared by PO's set_sales_update_date().
+				AtumCalculatedProps::update_atum_sales_calc_props_cli_call( $product, 1 );
+
+			}
+			else {
+				// Orphan/unreadable rows must leave the cursor or the same IDs would refill every batch.
+				$this->touch_expiring_product_update_date( $product_id );
+			}
+
+			$processed++;
+
+			// Check the budget only between products: type 1 already writes update_date.
+			if ( $time_budget > 0 && ( microtime( TRUE ) - $started ) >= $time_budget ) {
+				break;
+			}
+
+		}
+
+		// Last page (SELECT < LIMIT) that hit the time budget: nothing was queued at start.
+		if ( $processed < count( $product_ids ) && ! $fetched_full_batch ) {
+			$this->enqueue_expiring_product_props_continuation();
+		}
+
+	}
+
+	/**
+	 * Get stale ATUM product IDs for the expiring-props job
+	 *
+	 * @since 2.0.5
+	 *
+	 * @param string $time  Previous dates will be filtered. Empty string skips the date WHERE.
+	 * @param int    $limit Max rows to return.
+	 *
+	 * @return int[]
+	 */
+	private function get_outdated_expiring_product_ids( $time, $limit ) {
+
 		global $wpdb;
 
 		$atum_product_data_table = $wpdb->prefix . Globals::ATUM_PRODUCT_DATA_TABLE;
-
-		// phpcs:disable
-		$sql = "SELECT product_id FROM $atum_product_data_table";
+		$posts_table             = $wpdb->posts;
+		$limit                   = max( 1, (int) $limit );
 
 		if ( $time ) {
+
 			$date_max = Helpers::date_format( strtotime( $time ), TRUE, TRUE );
-			$sql     .= $wpdb->prepare( ' WHERE update_date <= %s OR update_date IS NULL', $date_max );
+
+			// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			$product_ids = $wpdb->get_col( $wpdb->prepare(
+				"SELECT apd.product_id
+				FROM $atum_product_data_table apd
+				INNER JOIN $posts_table p ON p.ID = apd.product_id
+				WHERE apd.update_date <= %s OR apd.update_date IS NULL
+				ORDER BY apd.update_date ASC, apd.product_id ASC
+				LIMIT %d",
+				$date_max,
+				$limit
+			) );
+
+		}
+		else {
+
+			// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			$product_ids = $wpdb->get_col( $wpdb->prepare(
+				"SELECT apd.product_id
+				FROM $atum_product_data_table apd
+				INNER JOIN $posts_table p ON p.ID = apd.product_id
+				ORDER BY apd.update_date ASC, apd.product_id ASC
+				LIMIT %d",
+				$limit
+			) );
+
 		}
 
-		$sql .= ' ORDER BY update_date';
+		return array_map( 'absint', (array) $product_ids );
 
-		$outdated_products = $wpdb->get_col( $sql );
-		// phpcs:enable
+	}
 
-		Helpers::adjust_long_process_settings(); // Try to avoid timeout issues.
+	/**
+	 * Advance update_date for a row that cannot be recalculated
+	 *
+	 * @since 2.0.5
+	 *
+	 * @param int $product_id
+	 */
+	private function touch_expiring_product_update_date( $product_id ) {
 
-		// TODO: WHAT ABOUT ILs AND POs PROPS? IS UPDATING THEM ALSO?
-		foreach ( $outdated_products as $product_id ) {
-			AtumCalculatedProps::defer_update_atum_sales_calc_props( $product_id );
+		global $wpdb;
+
+		$wpdb->update(
+			$wpdb->prefix . Globals::ATUM_PRODUCT_DATA_TABLE,
+			array(
+				'update_date' => Helpers::date_format( '', TRUE, TRUE ),
+			),
+			array(
+				'product_id' => absint( $product_id ),
+			)
+		);
+
+	}
+
+	/**
+	 * Enqueue a one-shot continuation that check_queues() will not cancel
+	 *
+	 * @since 2.0.5
+	 */
+	private function enqueue_expiring_product_props_continuation() {
+
+		if ( ! function_exists( 'as_enqueue_async_action' ) ) {
+			return;
 		}
+
+		// Only skip when another continue is still waiting. as_next_scheduled_action()
+		// also matches STATUS_RUNNING (this job), which would stop the drain after one page.
+		if ( $this->has_pending_expiring_product_props_continuation() ) {
+			return;
+		}
+
+		as_enqueue_async_action( self::EXPIRING_PROPS_CONTINUE_HOOK, [], self::EXPIRING_PROPS_CONTINUE_GROUP );
+
+	}
+
+	/**
+	 * Whether a continue action is queued (pending only, not the running job)
+	 *
+	 * @since 2.0.5
+	 *
+	 * @return bool
+	 */
+	private function has_pending_expiring_product_props_continuation() {
+
+		if ( ! class_exists( 'ActionScheduler' ) || ! \ActionScheduler::is_initialized() ) {
+			return FALSE;
+		}
+
+		$action_id = \ActionScheduler::store()->query_action( array(
+			'hook'   => self::EXPIRING_PROPS_CONTINUE_HOOK,
+			'args'   => array(),
+			'group'  => self::EXPIRING_PROPS_CONTINUE_GROUP,
+			'status' => \ActionScheduler_Store::STATUS_PENDING,
+		) );
+
+		return ! empty( $action_id );
 
 	}
 
@@ -514,7 +711,8 @@ class AtumQueues {
 
 				$data = [
 					'action'     => 'atum_async_hooks',
-					'atum_hooks' => self::$async_hooks,
+					// A scalar keeps bulk product IDs from exhausting PHP's max_input_vars before the signature.
+					'atum_hooks' => http_build_query( array( 'atum_hooks' => self::$async_hooks ), '', '&' ),
 				];
 
 				$headers = $cookies = array();
@@ -555,6 +753,11 @@ class AtumQueues {
 				// NOTE: The nonce must be added after the logged in cookie has been set.
 				$data['security'] = wp_create_nonce( 'atum_async_hooks' );
 
+				// SECURITY: the nonce doesn't cover the request body, so the hooks are signed, together with the site ID
+				// and an expiry time, and handle_async_hooks() only runs what carries a valid signature.
+				$data['atum_expires']   = time() + self::ASYNC_SIGNATURE_LIFETIME;
+				$data['atum_signature'] = self::sign_async_hooks( $data['atum_hooks'], $data['atum_expires'] );
+
 				$request_args = array(
 					'timeout'    => 0.01,
 					'blocking'   => FALSE,
@@ -585,14 +788,28 @@ class AtumQueues {
 		// it does reject legitimate loopback requests whenever a proxy/WAF rewrites the header or home_url() resolves
 		// differently for the incoming request (multilingual sites, www/non-www, http/https, multisite), and during the
 		// upgrade window when ATUM_VERSION changes between the request that enqueues and the one that executes.
-		// The actual protections for this endpoint are the nonce above and the callback allow-list applied below.
+		// The actual protections for this endpoint are the nonce above, the request signature and the callback allow-list
+		// applied below.
+
+		// SECURITY: the nonce is not tied to the request body, so the hooks must come signed by trigger_async_actions().
+		// A request with a missing, invalid or expired signature is rejected as a whole, before reading any callback.
+		$rejection = self::get_async_request_rejection();
+
+		if ( $rejection ) {
+			error_log( sprintf( 'ATUM: async hooks request rejected — %s.', $rejection ) );
+			wp_die( -1, 403 );
+		}
 
 		// Refresh the available async transient.
 		AtumCache::set_transient( self::$async_available_transient, 1, DAY_IN_SECONDS, TRUE );
 
-		if ( ! empty( $_POST['atum_hooks'] ) && is_array( $_POST['atum_hooks'] ) ) {
+		// The signed scalar is decoded only after its nonce, signature, and expiry have been checked.
+		// WordPress normally slashes nested POST values; retain that endpoint behavior for callback parameters.
+		$async_hooks = wp_slash( self::decode_async_hooks_payload( wp_unslash( $_POST['atum_hooks'] ) ) );
 
-			foreach ( $_POST['atum_hooks'] as $priority_group ) {
+		if ( $async_hooks ) {
+
+			foreach ( $async_hooks as $priority_group ) {
 
 				foreach ( $priority_group as $hook_data ) {
 
@@ -636,6 +853,10 @@ class AtumQueues {
 	 *
 	 * Only class-based callbacks belonging to an ATUM namespace are permitted. String callbacks
 	 * (e.g. 'system', 'exec') and third-party classes are rejected to avoid remote code execution.
+	 * Among ATUM class callbacks, only those in the allow-list (the static methods registered through
+	 * add_async_action()) run while an allow-list can be read. When there is none at all, the callback is
+	 * accepted: this method is only reached by requests carrying a valid signature (see handle_async_hooks()),
+	 * so the callback was queued through add_async_action() by this site.
 	 *
 	 * @since 2.0.1
 	 *
@@ -668,25 +889,35 @@ class AtumQueues {
 			return FALSE;
 		}
 
-		$allowed = self::get_allowed_async_callbacks();
+		// SECURITY: even among ATUM static methods, only run the exact callbacks ATUM has registered as
+		// async actions (shrinks the reachable surface to the handful enqueued via add_async_action()).
+		// add_async_action() records the callback before its request is dispatched, so while an allow-list
+		// can be read, a callback missing from it is rejected.
+		$signature = $class . '::' . $callback[1];
+		$allowed   = self::get_allowed_async_callbacks();
 
-		// If the allow-list hasn't been populated yet (fresh install, object-cache lag, or an upgrade
-		// window where an old loopback request hits the new handler), fall back to the namespace + static
-		// checks above rather than silently dropping a legitimate async task.
-		if ( empty( $allowed ) ) {
+		if ( in_array( $signature, $allowed, TRUE ) ) {
 			return TRUE;
 		}
 
-		// SECURITY: even among ATUM static methods, only run the exact callbacks ATUM has registered as
-		// async actions (shrinks the reachable surface to the handful enqueued via add_async_action()).
-		$signature = $class . '::' . $callback[1];
+		// The cached copy of the option can lag behind the stored row (a stale options cache, for instance), which
+		// would drop a legitimate task. Check the stored row before rejecting: the gate stays strict because only
+		// what add_async_action() stored is accepted, and nothing coming from the request is added to the allow-list.
+		$stored = self::get_stored_async_callbacks();
 
-		if ( ! in_array( $signature, $allowed, TRUE ) ) {
-			error_log( sprintf( 'ATUM: async callback "%s" rejected — not in the registered async allow-list.', $signature ) );
-			return FALSE;
+		if ( in_array( $signature, $stored, TRUE ) ) {
+			return TRUE;
 		}
 
-		return TRUE;
+		// No allow-list can be read, neither cached nor stored (a first registration not visible yet, for instance).
+		// The request signature has already proven that the callback was queued through add_async_action().
+		if ( ! $allowed && ! $stored ) {
+			return TRUE;
+		}
+
+		error_log( sprintf( 'ATUM: async callback "%s" rejected — not in the registered async allow-list.', $signature ) );
+
+		return FALSE;
 
 	}
 
@@ -733,6 +964,110 @@ class AtumQueues {
 		}
 
 		return self::$allowed_async_callbacks;
+
+	}
+
+	/**
+	 * Read the allowed async callback signatures from the options table itself, bypassing the options cache.
+	 *
+	 * @since 2.0.5
+	 *
+	 * @return string[]
+	 */
+	private static function get_stored_async_callbacks() {
+
+		global $wpdb;
+
+		$stored = $wpdb->get_var( $wpdb->prepare( "SELECT option_value FROM $wpdb->options WHERE option_name = %s LIMIT 1", 'atum_async_allowed_callbacks' ) );
+
+		return array_values( array_filter( (array) maybe_unserialize( $stored ), 'is_string' ) );
+
+	}
+
+	/**
+	 * Decode the signed form data without PHP's per-call input-variable limit.
+	 *
+	 * The nested form data is carried as one outer POST variable. Parsing bounded chunks preserves the previous
+	 * form-decoded callback parameters (including stringified numbers and omitted NULL values) for large batches.
+	 *
+	 * @since 2.0.5
+	 *
+	 * @param string $payload Signed, form-encoded hooks.
+	 *
+	 * @return array
+	 */
+	private static function decode_async_hooks_payload( $payload ) {
+		$received       = array();
+		$max_input_vars = (int) ini_get( 'max_input_vars' );
+		$chunk_size     = $max_input_vars > 0 ? min( 500, $max_input_vars ) : 500;
+
+		foreach ( array_chunk( explode( '&', $payload ), $chunk_size ) as $chunk ) {
+			parse_str( implode( '&', $chunk ), $decoded );
+			$received = array_replace_recursive( $received, $decoded );
+		}
+
+		return isset( $received['atum_hooks'] ) && is_array( $received['atum_hooks'] ) ? $received['atum_hooks'] : array();
+
+	}
+
+	/**
+	 * Sign the async hooks of a request: an HMAC-SHA256 over the site ID, expiry, and exact payload bytes.
+	 *
+	 * The sites of a multisite network share the salts, so the site ID keeps a request signed for one site from being
+	 * valid on another.
+	 *
+	 * @since 2.0.5
+	 *
+	 * @param string     $payload The scalar form data decoded by the endpoint after verification.
+	 * @param int|string $expires     The Unix time the signature expires at, as decimal digits only.
+	 *
+	 * @return string
+	 */
+	private static function sign_async_hooks( $payload, $expires ) {
+
+		return hash_hmac( 'sha256', 'atum_async_hooks|' . get_current_blog_id() . '|' . $expires . '|' . $payload, wp_salt( 'nonce' ) );
+
+	}
+
+	/**
+	 * Check the signature of the current async hooks request
+	 *
+	 * @since 2.0.5
+	 *
+	 * @return string The reason to reject the request. Empty when its signature is valid and has not expired.
+	 */
+	private static function get_async_request_rejection() {
+
+		// The nonce has already been checked by handle_async_hooks(). WordPress slashes the request data, and the
+		// signature covers it as it was sent.
+		$expires     = isset( $_POST['atum_expires'] ) && is_string( $_POST['atum_expires'] ) ? wp_unslash( $_POST['atum_expires'] ) : '';
+		$signature   = isset( $_POST['atum_signature'] ) && is_string( $_POST['atum_signature'] ) ? wp_unslash( $_POST['atum_signature'] ) : '';
+		$payload     = isset( $_POST['atum_hooks'] ) && is_string( $_POST['atum_hooks'] ) ? wp_unslash( $_POST['atum_hooks'] ) : '';
+
+		if ( '' === $expires || '' === $signature ) {
+			return 'missing signature';
+		}
+
+		if ( ! isset( $_POST['atum_hooks'] ) || ! is_string( $_POST['atum_hooks'] ) ) {
+			return 'invalid signature';
+		}
+
+		// SECURITY: the expiry time is joined to the other signed parts with a separator, so anything other than
+		// decimal digits would make the signed string ambiguous (the D modifier also rejects a trailing line break).
+		if ( ! preg_match( '/^[0-9]+$/D', $expires ) ) {
+			return 'invalid signature';
+		}
+
+		// The expiry time is part of the signed data, so it is only trusted once the signature is known to be valid.
+		if ( ! hash_equals( self::sign_async_hooks( $payload, $expires ), $signature ) ) {
+			return 'invalid signature';
+		}
+
+		if ( (int) $expires < time() ) {
+			return 'expired signature';
+		}
+
+		return '';
 
 	}
 

@@ -157,6 +157,27 @@ class Wpml {
 	}
 
 	/**
+	 * Sanitize a language code: return it unchanged when its format is valid, or an empty string otherwise.
+	 *
+	 * SECURITY: `_wpml_lang` values reach SQL `language_code` comparisons, so only a value shaped like
+	 * a language code (letters, digits, underscores and hyphens, 1 to 20 characters) is accepted.
+	 * The check does not depend on the WPML state (the active languages list is not available on every
+	 * request type) and a valid code is returned unchanged, so it is safe on both save and read.
+	 *
+	 * @since 2.0.5
+	 *
+	 * @param mixed $lang The value to check. Anything other than a string is rejected.
+	 *
+	 * @return string The language code, or an empty string when it is not a valid one.
+	 */
+	public static function sanitize_language_code( $lang ) {
+
+		// The D modifier makes $ match only at the very end, so a code followed by a line break is rejected.
+		return is_string( $lang ) && preg_match( '/^[A-Za-z0-9_-]{1,20}$/D', $lang ) ? $lang : '';
+
+	}
+
+	/**
 	 * Register the WPML hooks needed by ATUM
 	 *
 	 * @since 1.4.1
@@ -937,11 +958,13 @@ class Wpml {
 
 		global $wpdb;
 
-		$unmng_where[] = "
+		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Only the table prefix is interpolated; the language is bound.
+		$unmng_where[] = $wpdb->prepare( "
 			AND posts.ID IN (
-				SELECT DISTINCT element_id FROM {$wpdb->prefix}icl_translations WHERE element_type IN ('post_product', 'post_product_variation') AND language_code = '{$this->current_language}'
+				SELECT DISTINCT element_id FROM {$wpdb->prefix}icl_translations WHERE element_type IN ('post_product', 'post_product_variation') AND language_code = %s
 			)
-		";
+		", $this->current_language );
+		// phpcs:enable
 
 		return $unmng_where;
 	}
@@ -1546,11 +1569,13 @@ class Wpml {
 		global $wpdb;
 
 		if ( $list_table instanceof ListTable ) {
-			$criteria .= "
+			// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Only the table prefix is interpolated; the language is bound.
+			$criteria .= $wpdb->prepare( "
 				AND tt.term_taxonomy_id IN (
-					SELECT DISTINCT element_id FROM {$wpdb->prefix}icl_translations WHERE element_type IN ('tax_product_cat', 'tax_atum_location') AND language_code = '$this->current_language'
+					SELECT DISTINCT element_id FROM {$wpdb->prefix}icl_translations WHERE element_type IN ('tax_product_cat', 'tax_atum_location') AND language_code = %s
 				)
-			";
+			", $this->current_language );
+			// phpcs:enable
 		}
 
 		return $criteria;
@@ -1675,7 +1700,9 @@ class Wpml {
 	 */
 	public function save_wpml_lang_order_prop( $atum_order_props, $atum_order ) {
 
-		$atum_order_props['wpml_lang'] = isset( $_POST['wpml_lang'] ) ? esc_attr( $_POST['wpml_lang'] ) : $this->current_language;
+		// SECURITY: only a value in the language code format is stored; fall back to the current language.
+		$posted_lang                   = isset( $_POST['wpml_lang'] ) ? self::sanitize_language_code( wp_unslash( $_POST['wpml_lang'] ) ) : '';
+		$atum_order_props['wpml_lang'] = $posted_lang ?: $this->current_language;
 
 		return $atum_order_props;
 	}
@@ -1704,7 +1731,9 @@ class Wpml {
 
 		if ( $post_id && PurchaseOrders::POST_TYPE === get_post_type( $post_id ) ) {
 
-			$lang = get_post_meta( $post_id, '_wpml_lang', TRUE );
+			// SECURITY: the stored value may predate the format check applied on save, and the current language
+			// is public and reaches SQL. A value that isn't a language code leaves the current language unchanged.
+			$lang = self::sanitize_language_code( get_post_meta( $post_id, '_wpml_lang', TRUE ) );
 
 			if ( $lang ) {
 				$this->current_language = $lang;
@@ -1761,7 +1790,9 @@ class Wpml {
 	 */
 	public function add_po_where_clause( $where_clauses, $term, $type, $include_variations, $all_statuses, $limit, $include, $exclude ) {
 
-		$where_clauses[] = "trans.language_code = '{$this->current_language}' ";
+		global $wpdb;
+
+		$where_clauses[] = $wpdb->prepare( 'trans.language_code = %s ', $this->current_language );
 
 		return $where_clauses;
 	}

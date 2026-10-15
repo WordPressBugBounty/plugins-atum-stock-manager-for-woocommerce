@@ -439,18 +439,89 @@ class InboundStockController  extends \WC_REST_Products_Controller {
 
 		global $wpdb;
 
-		$search_query = '';
-		$found_posts  = 0;
+		$found_posts = 0;
 
+		// SECURITY: every request-influenced value below is bound through placeholders; no request
+		// value is ever interpolated into the prepare() format string. Identifiers (orderby/order)
+		// stay allow-listed. The order statuses are not request-controlled, but they are filterable
+		// (atum/purchase_orders/statuses), hence bound too.
+
+		// Ordered list of bound arguments, matching the placeholder order in the query below.
+		$args = array( PurchaseOrders::POST_TYPE );
+
+		// Order statuses (filterable, not request-controlled) bound as %s.
+		$statuses = array_values( array_diff( array_keys( PurchaseOrders::get_statuses() ), [ PurchaseOrders::FINISHED ] ) );
+
+		// The filter can leave no non-finished status: nothing can match, so return the empty result
+		// instead of running a query with an empty IN() list.
+		if ( ! $statuses ) {
+
+			return array(
+				'objects' => $this->inbound_stock_items,
+				'total'   => 0,
+				'pages'   => 0,
+			);
+
+		}
+
+		$status_placeholders = implode( ', ', array_fill( 0, count( $statuses ), '%s' ) );
+		$args                = array_merge( $args, $statuses );
+
+		// Generate a bound IN()/NOT IN() fragment from a list of IDs.
+		$id_fragment = function ( $ids, $clause ) use ( &$args ) {
+			// Zero ids are kept: a list such as array( 0 ) is the WordPress convention for "match nothing".
+			$ids = array_map( 'absint', (array) $ids );
+			if ( ! $ids ) {
+				return '';
+			}
+			$placeholders = implode( ', ', array_fill( 0, count( $ids ), '%d' ) );
+			$args         = array_merge( $args, $ids );
+			return str_replace( '%PLACEHOLDERS%', $placeholders, $clause );
+		};
+
+		$post_in     = ! empty( $query_args['post__in'] ) ? $id_fragment( $query_args['post__in'], 'AND oim.`meta_value` IN (%PLACEHOLDERS%)' ) : '';
+		$po_in       = ! empty( $query_args['include_po'] ) ? $id_fragment( $query_args['include_po'], 'AND p.`ID` IN (%PLACEHOLDERS%)' ) : '';
+		$post_not_in = ! empty( $query_args['post__not_in'] ) ? $id_fragment( $query_args['post__not_in'], 'AND oim.`meta_value` NOT IN (%PLACEHOLDERS%)' ) : '';
+		$po_not_in   = ! empty( $query_args['exclude_po'] ) ? $id_fragment( $query_args['exclude_po'], 'AND p.`ID` NOT IN (%PLACEHOLDERS%)' ) : '';
+
+		$date_query = ! empty( $query_args['date_query'] ) ? current( $query_args['date_query'] ) : [];
+
+		$before = '';
+		if ( ! empty( $date_query['before'] ) ) {
+			$before = 'AND p.`post_date` < %s';
+			$args[] = $date_query['before'];
+		}
+
+		$expected_before = '';
+		if ( ! empty( $query_args['expected_before'] ) ) {
+			$expected_before = 'AND de.`meta_value` < %s';
+			$args[]          = $query_args['expected_before'];
+		}
+
+		$after = '';
+		if ( ! empty( $date_query['after'] ) ) {
+			$after  = 'AND p.`post_date` > %s';
+			$args[] = $date_query['after'];
+		}
+
+		$expected_after = '';
+		if ( ! empty( $query_args['expected_after'] ) ) {
+			$expected_after = 'AND de.`meta_value` > %s';
+			$args[]         = $query_args['expected_after'];
+		}
+
+		$search_query = '';
 		if ( ! empty( $query_args['s'] ) ) {
 
-			$search = esc_attr( $query_args['s'] );
+			$search = (string) $query_args['s'];
 
 			if ( is_numeric( $search ) ) {
-				$search_query .= 'AND `meta_value` = ' . absint( $query_args['s'] );
+				$search_query = 'AND oim.`meta_value` = %d';
+				$args[]       = absint( $search );
 			}
 			else {
-				$search_query .= "AND `order_item_name` LIKE '%{$search}%'";
+				$search_query = 'AND oi.`order_item_name` LIKE %s';
+				$args[]       = '%' . $wpdb->esc_like( $search ) . '%';
 			}
 
 		}
@@ -472,34 +543,25 @@ class InboundStockController  extends \WC_REST_Products_Controller {
 		}
 
 		$order           = ( ! empty( $query_args['order'] ) && in_array( strtoupper( $query_args['order'] ), [ 'ASC', 'DESC' ] ) ) ? strtoupper( $query_args['order'] ) : 'DESC';
-		$statuses        = array_diff( array_keys( PurchaseOrders::get_statuses() ), [ PurchaseOrders::FINISHED ] );
-		$post_in         = ! empty( $query_args['post__in'] ) ? 'AND oim.`meta_value` IN (' . implode( ',', $query_args['post__in'] ) . ')' : '';
-		$po_in           = ! empty( $query_args['include_po'] ) ? 'AND p.`ID` IN (' . implode( ',', $query_args['include_po'] ) . ')' : '';
-		$post_not_in     = ! empty( $query_args['post__not_in'] ) ? 'AND oim.`meta_value` NOT IN (' . implode( ',', $query_args['post__not_in'] ) . ')' : '';
-		$po_not_in       = ! empty( $query_args['exclude_po'] ) ? 'AND p.`ID` NOT IN (' . implode( ',', $query_args['exclude_po'] ) . ')' : '';
-		$date_query      = ! empty( $query_args['date_query'] ) ? current( $query_args['date_query'] ) : [];
-		$before          = ! empty( $date_query['before'] ) ? "AND p.post_date < '" . $date_query['before'] . "'" : '';
-		$expected_before = ! empty( $query_args['expected_before'] ) ? "AND de.`meta_value` < '" . $query_args['expected_before'] . "'" : '';
-		$after           = ! empty( $date_query['after'] ) ? "AND p.`post_date` > '" . $date_query['after'] . "'" : '';
-		$expected_after  = ! empty( $query_args['expected_after'] ) ? "AND de.`meta_value` > '" . $query_args['expected_after'] . "'" : '';
 		$expected_join   = $expected_before || $expected_after ? "LEFT JOIN `$wpdb->postmeta` AS de ON (de.`post_id` = p.`ID` AND de.`meta_key` = '_date_expected')" : '';
 
 		$atum_order_items_table      = $wpdb->prefix . AtumOrderPostType::ORDER_ITEMS_TABLE;
 		$atum_order_items_meta_table = $wpdb->prefix . AtumOrderPostType::ORDER_ITEM_META_TABLE;
 
-		// phpcs:disable
+		// The bound arguments in $args must follow the order of the fragments in this template.
+		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare -- Table names and fragments made of generated placeholders; every value is bound through $args.
 		$sql = $wpdb->prepare("
-			SELECT MAX(CAST( oim.`meta_value` AS SIGNED )) AS product_id, oi.`order_item_id`, `order_id`, `order_item_name` 			
-			FROM `$atum_order_items_table` AS oi 
+			SELECT MAX(CAST( oim.`meta_value` AS SIGNED )) AS product_id, oi.`order_item_id`, `order_id`, `order_item_name`
+			FROM `$atum_order_items_table` AS oi
 			LEFT JOIN `$atum_order_items_meta_table` AS oim ON oi.`order_item_id` = oim.`order_item_id`
 			LEFT JOIN `$wpdb->posts` AS p ON oi.`order_id` = p.`ID`
 			$expected_join
-			WHERE oim.`meta_key` IN ('_product_id', '_variation_id') AND `order_item_type` = 'line_item' 
-			AND p.`post_type` = %s AND oim.`meta_value` > 0 AND `post_status` IN ('" . implode( "','", $statuses ) . "')
+			WHERE oim.`meta_key` IN ('_product_id', '_variation_id') AND `order_item_type` = 'line_item'
+			AND p.`post_type` = %s AND oim.`meta_value` > 0 AND `post_status` IN ($status_placeholders)
 			$post_in $po_in $post_not_in $po_not_in $before $expected_before $after $expected_after $search_query
 			GROUP BY oi.`order_item_id`
 			$order_by $order;",
-			PurchaseOrders::POST_TYPE
+			$args
 		);
 		// phpcs:enable
 

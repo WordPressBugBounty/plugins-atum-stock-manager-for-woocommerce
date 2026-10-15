@@ -173,6 +173,24 @@ abstract class AtumOrdersController extends \WC_REST_Orders_Controller {
 	}
 
 	/**
+	 * Update a single ATUM order.
+	 * Since WC 11.1, WC_REST_Orders_V2_Controller::update_item() rejects any ID whose OrderUtil::get_order_type()
+	 * doesn't match the controller's post type, which is never the case for ATUM orders (they aren't WC orders).
+	 * So we skip that check and go straight to the CRUD controller's update.
+	 *
+	 * @since 2.0.5
+	 *
+	 * @param \WP_REST_Request $request Full details about the request.
+	 *
+	 * @return \WP_Error|\WP_REST_Response
+	 */
+	public function update_item( $request ) {
+
+		return \WC_REST_CRUD_Controller::update_item( $request );
+
+	}
+
+	/**
 	 * Check if a given request has access to delete an item
 	 *
 	 * @since 1.6.2

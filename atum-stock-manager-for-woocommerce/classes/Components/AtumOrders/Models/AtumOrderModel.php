@@ -2725,7 +2725,8 @@ abstract class AtumOrderModel {
 	 */
 	public function set_wpml_lang( $wpml_lang, $skip_change = FALSE ) {
 
-		$wpml_lang = wc_clean( $wpml_lang );
+		// SECURITY: only a value in the language code format is stored (it reaches SQL). See Wpml::sanitize_language_code().
+		$wpml_lang = \Atum\Integrations\Wpml::sanitize_language_code( $wpml_lang );
 
 		if ( ! $skip_change ) {
 			$this->register_change( 'wpml_lang' );

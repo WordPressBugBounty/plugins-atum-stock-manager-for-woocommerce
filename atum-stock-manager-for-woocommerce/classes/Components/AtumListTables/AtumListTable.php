@@ -1791,6 +1791,19 @@ abstract class AtumListTable extends \WP_List_Table {
 
 				}
 
+				// A negative stock is only a warning (OOT) when backorders are allowed. Otherwise, it's an error.
+				if ( is_numeric( $stock ) && $stock < 0 && ! $this->list_item->backorders_allowed() ) {
+
+					if ( ! $editable ) {
+						$classes_title = ' class="cell-red" title="' . esc_attr__( 'Negative stock (backorders not allowed)', ATUM_TEXT_DOMAIN ) . '"';
+					}
+					else {
+						$classes_title   = ' class="cell-red"';
+						$tooltip_warning = esc_attr__( 'Click to edit the stock quantity (negative stock with backorders not allowed)', ATUM_TEXT_DOMAIN );
+					}
+
+				}
+
 			}
 
 		}
@@ -4996,7 +5009,7 @@ abstract class AtumListTable extends \WP_List_Table {
 			'sold_last_days'                   => '',
 		);
 
-		parse_str( $_SERVER['QUERY_STRING'], $query_string );
+		parse_str( $_SERVER['QUERY_STRING'] ?? '', $query_string );
 		$params = array_filter( array_intersect_key( $query_string, $default_filters ) );
 
 		// The filters with default values should be excluded.

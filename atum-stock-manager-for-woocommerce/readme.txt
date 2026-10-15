@@ -3,11 +3,11 @@
 Contributors: stockmanagementlabs, salvamb, japiera, agimeno82, dorquium
 Tags: woocommerce stock management, suppliers, purchase orders, inbound stock, inventory logs
 Requires at least: 6.8
-Tested up to: 7.1
+Tested up to: 7.1.3
 Requires PHP: 7.4
-WC requires at least: 6.0
-WC tested up to: 11.1.0
-Stable tag: 2.0.4
+WC requires at least: 8.0
+WC tested up to: 11.2.1
+Stable tag: 2.0.5
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -213,6 +213,27 @@ We officially support: WooCommerce Product Bundles, WooCommerce Subscriptions, W
 
 
 == Changelog ==
+
+---
+
+`2.0.5`
+
+*2026-10-15*
+
+**Changes**
+
+* Added new messages when trying to add a product that already exists in the PO items.
+* Paginated the calculated props cron to avoid timeouts.
+* Excluded orphan variations from the stock levels widgets.
+* Added more local TLDs and staging subdomains to the add-ons license checks.
+
+**Fixes**
+
+* Several security fixes.
+* Fixed the best/worst sellers filter cache in Stock Central ignoring the selected date range.
+* Fixed incorrect color of negative stock when backorders are not allowed.
+* Fixed updating ATUM order items through the API.
+* Fixed errors when using WP-CLI.
 
 ---
 

@@ -24,11 +24,11 @@ class Media {
 	private static $instance;
 
 	/**
-	 * The linked post type coming as param in the current request
+	 * Registered post types allowed for the current linked_post_type filter.
 	 *
-	 * @var string
+	 * @var string[]
 	 */
-	private $linked_post_type = '';
+	private $linked_post_types = array();
 
 	/**
 	 * Media constructor
@@ -68,16 +68,37 @@ class Media {
 	/**
 	 * Check if the endpoint is being filtered by linked_post_type
 	 *
+	 * When the parameter holds no registered post type, post__in is set to array( 0 ) so the query matches nothing.
+	 *
 	 * @since 1.9.19
 	 *
 	 * @param array            $args
 	 * @param \WP_REST_Request $request
+	 *
+	 * @return array The query args.
 	 */
 	public function maybe_filter_linked_post_type( $args, $request ) {
 
+		// Reset the stored post types on every request so no state leaks between requests (singleton).
+		$this->linked_post_types = array();
+
 		if ( ! empty( $request['linked_post_type'] ) ) {
-			$this->linked_post_type = esc_attr( $request['linked_post_type'] );
-			add_filter( 'posts_clauses', array( $this, 'filter_linked_post_type' ), 10, 2 );
+
+			// SECURITY: allow-list against the registered post types (these values are later bound into
+			// a post_type IN (...) clause), instead of relying on esc_attr as a SQL sanitizer.
+			$requested_post_types = array_map( 'trim', explode( ',', (string) $request['linked_post_type'] ) );
+			$linked_post_types    = array_values( array_intersect( $requested_post_types, get_post_types() ) );
+
+			if ( $linked_post_types ) {
+				$this->linked_post_types = $linked_post_types;
+				add_filter( 'posts_clauses', array( $this, 'filter_linked_post_type' ), 10, 2 );
+			}
+			else {
+				// No registered post type was requested, so no attachment can be linked to it: match nothing
+				// instead of ignoring the filter and returning all the media.
+				$args['post__in'] = array( 0 );
+			}
+
 		}
 
 		return $args;
@@ -86,6 +107,9 @@ class Media {
 
 	/**
 	 * Add extra filtering to the media endpoint for the linked_post_type param
+	 *
+	 * For every requested post type whose private posts the current user cannot read, only publicly
+	 * viewable types in a public status count as linked posts (attachments also allow "inherit").
 	 *
 	 * @since 1.9.19
 	 *
@@ -108,26 +132,101 @@ class Media {
 
 		global $wpdb;
 
-		if ( $this->linked_post_type ) {
+		if ( $this->linked_post_types ) {
 
-			if ( str_contains( $this->linked_post_type, ',' ) ) {
-				$linked_post_types = array_map( 'trim', explode( ',', $this->linked_post_type ) );
+			// SECURITY: a featured image linked from a draft or private post reveals that the post exists, so a user
+			// who cannot read the private posts of a post type only gets links from viewable public posts.
+			$unrestricted_post_types = $public_only_post_types = array();
+			$restrict_attachments    = FALSE;
+
+			foreach ( $this->linked_post_types as $linked_post_type ) {
+
+				$post_type_object = get_post_type_object( $linked_post_type );
+
+				if ( $post_type_object && current_user_can( $post_type_object->cap->read_private_posts ) ) {
+					$unrestricted_post_types[] = $linked_post_type;
+				}
+				elseif ( 'attachment' === $linked_post_type ) {
+					$restrict_attachments = TRUE;
+				}
+				elseif ( $post_type_object && is_post_type_viewable( $post_type_object ) ) {
+					$public_only_post_types[] = $linked_post_type;
+				}
+
+			}
+
+			$public_statuses = array_values( get_post_stati( array( 'public' => TRUE ) ) );
+			$restrictions    = array();
+
+			if ( $public_only_post_types ) {
+				$restrictions[] = array( $public_only_post_types, $public_statuses );
+			}
+
+			// Attachments have the "inherit" status and the media collection already lists them, so they keep
+			// counting as linked posts.
+			if ( $restrict_attachments ) {
+				$restrictions[] = array( array( 'attachment' ), array_merge( $public_statuses, array( 'inherit' ) ) );
+			}
+
+			$conditions = $values = array();
+
+			if ( $unrestricted_post_types ) {
+				$conditions[] = 'p.post_type IN (' . self::get_placeholders( $unrestricted_post_types ) . ')';
+				$values       = $unrestricted_post_types;
+			}
+
+			foreach ( $restrictions as $restriction ) {
+
+				list( $post_types, $statuses ) = $restriction;
+
+				// Without any allowed status, these post types have no linked post to show.
+				if ( ! $statuses ) {
+					continue;
+				}
+
+				$conditions[] = '(p.post_type IN (' . self::get_placeholders( $post_types ) . ') AND p.post_status IN (' . self::get_placeholders( $statuses ) . '))';
+				$values       = array_merge( $values, $post_types, $statuses );
+
+			}
+
+			if ( $conditions ) {
+
+				$conditions = implode( ' OR ', $conditions );
+
+				// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare -- Generated %s placeholders, one per allow-listed post type and allowed status.
+				$where_clause = $wpdb->prepare( "
+					SELECT DISTINCT pm.meta_value FROM $wpdb->posts p
+					LEFT JOIN $wpdb->postmeta pm ON (pm.post_id = p.ID AND pm.meta_key = '_thumbnail_id')
+					WHERE $conditions
+				", $values );
+				// phpcs:enable
+
+				$clauses['where'] .= " AND $wpdb->posts.ID IN ($where_clause)";
+
 			}
 			else {
-				$linked_post_types = [ $this->linked_post_type ];
+				// None of the requested post types has a linked post to show, so no attachment matches.
+				$clauses['where'] .= ' AND 1 = 0';
 			}
-
-			$where_clause = "
-				SELECT DISTINCT pm.meta_value FROM $wpdb->posts p
-				LEFT JOIN $wpdb->postmeta pm ON (pm.post_id = p.ID AND pm.meta_key = '_thumbnail_id')
-				WHERE p.post_type IN ('" . implode( "','", $linked_post_types ) . "')
-			";
-
-			$clauses['where'] .= " AND $wpdb->posts.ID IN ($where_clause)";
 
 		}
 
 		return $clauses;
+
+	}
+
+	/**
+	 * Get a comma-separated list of %s placeholders, one per given value
+	 *
+	 * @since 2.0.5
+	 *
+	 * @param array $values
+	 *
+	 * @return string
+	 */
+	private static function get_placeholders( array $values ) {
+
+		return implode( ', ', array_fill( 0, count( $values ), '%s' ) );
 
 	}
 

@@ -398,7 +398,8 @@ class Supplier extends AtumCPTModel {
 	 * @param string $wpml_lang
 	 */
 	public function set_wpml_lang( $wpml_lang ) {
-        $this->set_prop( 'wpml_lang', esc_attr( $wpml_lang ) );
+		// SECURITY: only a value in the language code format is stored (it reaches SQL). See Wpml::sanitize_language_code().
+		$this->set_prop( 'wpml_lang', \Atum\Integrations\Wpml::sanitize_language_code( $wpml_lang ) );
 	}
 
 	/**

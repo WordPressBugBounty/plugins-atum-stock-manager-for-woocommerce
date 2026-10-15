@@ -1392,6 +1392,12 @@ final class Ajax {
 
 		check_ajax_referer( 'search-products', 'security' );
 
+		// SECURITY: this search is only used from the ATUM orders' items (Purchase Orders and Inventory Logs),
+		// so the user must be able to edit at least one of them.
+		if ( ! AtumCapabilities::current_user_can( 'edit_purchase_orders' ) && ! AtumCapabilities::current_user_can( 'edit_inventory_logs' ) ) {
+			wp_die( -1 );
+		}
+
 		if ( empty( $_GET['term'] ) ) {
 			wp_die( [] );
 		}
@@ -1406,8 +1412,9 @@ final class Ajax {
 		$include_ids = ! empty( $_GET['include'] ) ? ( is_array( $_GET['include'] ) ? wp_unslash( $_GET['include'] ) : explode( ',', wp_unslash( $_GET['include'] ) ) ) : [];
 		$exclude_ids = ! empty( $_GET['exclude'] ) ? ( is_array( $_GET['exclude'] ) ? wp_unslash( $_GET['exclude'] ) : explode( ',', wp_unslash( $_GET['exclude'] ) ) ) : [];
 
-		$ids = Helpers::search_products( $term, '', TRUE, FALSE, $limit, $include_ids, $exclude_ids );
-		
+		$ids          = Helpers::search_products( $term, '', TRUE, FALSE, $limit, $include_ids, $exclude_ids );
+		$supplier_ids = NULL;
+
 		$post_id = ! empty( $_GET['id'] ) ? absint( $_GET['id'] ) : NULL;
 
 		if ( ! $post_id ) {
@@ -1430,6 +1437,7 @@ final class Ajax {
 
 				$supplier_products = Suppliers::get_supplier_products( $atum_order->get_supplier( 'id' ), [ 'product', 'product_variation' ], FALSE );
 				$included          = is_array( $supplier_products ) ? array_map( 'absint', $supplier_products ) : [];
+				$supplier_ids      = $included;
 
 				// Will be empty if $included is empty.
 				$ids = array_intersect( $ids, $included );
@@ -1438,7 +1446,40 @@ final class Ajax {
 
 		}
 
-		wp_send_json( apply_filters( 'atum/ajax/search_products/json_search_found_products', $this->prepare_json_search_products( $ids, $atum_order ?? NULL ) ) );
+		$products = apply_filters( 'atum/ajax/search_products/json_search_found_products', $this->prepare_json_search_products( $ids, $atum_order ?? NULL ) );
+
+		if ( empty( $products ) ) {
+			$this->send_product_search_notice_header( $term, $limit, $include_ids, $exclude_ids, $supplier_ids );
+		}
+
+		wp_send_json( $products );
+
+	}
+
+	/**
+	 * Explain through a response header why a product search returned no results (if the matches were hidden on purpose)
+	 *
+	 * @since 2.0.5
+	 *
+	 * @param string     $term
+	 * @param int        $limit
+	 * @param array      $include_ids
+	 * @param array      $exclude_ids
+	 * @param int[]|null $supplier_ids NULL if the search is not restricted to any supplier.
+	 */
+	private function send_product_search_notice_header( $term, $limit, $include_ids, $exclude_ids, $supplier_ids ) {
+
+		// Nothing could have hidden the matching products.
+		if ( empty( $exclude_ids ) && is_null( $supplier_ids ) ) {
+			return;
+		}
+
+		$matched_ids = array_keys( $this->prepare_json_search_products( Helpers::search_products( $term, '', TRUE, FALSE, $limit, $include_ids ) ) );
+		$notice      = Helpers::get_product_search_notice( $matched_ids, $exclude_ids, $supplier_ids );
+
+		if ( $notice && ! headers_sent() ) {
+			header( 'X-ATUM-Search-Notice: ' . $notice );
+		}
 
 	}
 

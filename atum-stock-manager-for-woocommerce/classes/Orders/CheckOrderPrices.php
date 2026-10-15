@@ -160,7 +160,11 @@ class CheckOrderPrices {
 
 		parse_str( ltrim( $_POST['query_string'], '?' ), $query_args );
 
-		$editable_statuses  = ! empty( $query_args['post_status'] ) ? [ esc_attr( $query_args['post_status'] ) ] : $this->editable_order_statuses;
+		// SECURITY: only allow known editable order statuses through; an unknown value falls back to
+		// the editable statuses instead of being inlined into the SQL.
+		$posted_statuses    = ! empty( $query_args['post_status'] ) ? (array) $query_args['post_status'] : array();
+		$editable_statuses  = array_intersect( $posted_statuses, $this->editable_order_statuses );
+		$editable_statuses  = $editable_statuses ?: $this->editable_order_statuses;
 		$mismatching_orders = $this->get_mismatching_orders( $editable_statuses );
 
 		$mismatching_orders_count = count( $mismatching_orders );
@@ -195,11 +199,21 @@ class CheckOrderPrices {
 
 		global $wpdb;
 
+		$editable_statuses = array_values( (array) $editable_statuses );
+
+		if ( empty( $editable_statuses ) ) {
+			return array();
+		}
+
+		$status_placeholders = implode( ', ', array_fill( 0, count( $editable_statuses ), '%s' ) );
+
 		if ( Helpers::is_using_hpos_tables() ) {
-			$orders_sql = "SELECT id FROM `{$wpdb->prefix}wc_orders` WHERE type = 'shop_order' AND status IN ( '" . implode( "','", $editable_statuses ) . "' )";
+			// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare -- Generated %s placeholders, one per allow-listed status.
+			$orders_sql = $wpdb->prepare( "SELECT id FROM `{$wpdb->prefix}wc_orders` WHERE type = 'shop_order' AND status IN ( $status_placeholders )", $editable_statuses );
 		}
 		else {
-			$orders_sql = "SELECT ID FROM `{$wpdb->posts}` WHERE post_type = 'shop_order' AND post_status IN ( '" . implode( "','", $editable_statuses ) . "' )";
+			// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare -- Generated %s placeholders, one per allow-listed status.
+			$orders_sql = $wpdb->prepare( "SELECT ID FROM `{$wpdb->posts}` WHERE post_type = 'shop_order' AND post_status IN ( $status_placeholders )", $editable_statuses );
 		}
 
 		// Search for all the editable orders with mismatching prices.

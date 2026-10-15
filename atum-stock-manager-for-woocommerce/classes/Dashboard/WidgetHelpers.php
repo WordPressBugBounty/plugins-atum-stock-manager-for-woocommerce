@@ -518,6 +518,10 @@ final class WidgetHelpers {
 
 			$post_types = ( ! empty( $variations ) || ! empty( $subscription_variations ) ) ? [ 'product', 'product_variation' ] : [ 'product' ];
 
+			// Orphaned variations (whose parent product no longer exists) must not be counted.
+			add_filter( 'atum/get_unmanaged_products/join_query', array( __CLASS__, 'orphaned_variations_unmanaged_join' ) );
+			add_filter( 'atum/get_unmanaged_products/where_query', array( __CLASS__, 'orphaned_variations_unmanaged_where' ) );
+
 			/*
 			 * Unmanaged products
 			 */
@@ -537,6 +541,9 @@ final class WidgetHelpers {
 			else {
 				$products_unmanaged_status = Helpers::get_unmanaged_products( $post_types, FALSE );
 			}
+
+			remove_filter( 'atum/get_unmanaged_products/join_query', array( __CLASS__, 'orphaned_variations_unmanaged_join' ) );
+			remove_filter( 'atum/get_unmanaged_products/where_query', array( __CLASS__, 'orphaned_variations_unmanaged_where' ) );
 
 			$products_unmanaged                = array_column( $products_unmanaged_status, 0 );
 			$stock_counters['count_unmanaged'] = count( $products_unmanaged );
@@ -577,6 +584,7 @@ final class WidgetHelpers {
 			) );
 
 			add_filter( 'posts_clauses', array( __CLASS__, 'atum_product_data_query_clauses' ) );
+			add_filter( 'posts_clauses', array( __CLASS__, 'orphaned_variations_query_clauses' ) );
 
 			$products_in_stock                 = new \WP_Query( apply_filters( 'atum/dashboard/get_stock_levels/in_stock_products_args', $args ) );
 			$products_in_stock                 = $products_in_stock->posts;
@@ -599,6 +607,7 @@ final class WidgetHelpers {
 
 			// ATUM query clauses not needed anymore.
 			remove_filter( 'posts_clauses', array( __CLASS__, 'atum_product_data_query_clauses' ) );
+			remove_filter( 'posts_clauses', array( __CLASS__, 'orphaned_variations_query_clauses' ) );
 
 			/*
 			 * Products in restock status
@@ -633,6 +642,63 @@ final class WidgetHelpers {
 	 */
 	public static function atum_product_data_query_clauses( $pieces ) {
 		return Helpers::product_data_query_clauses( self::$atum_query_data, $pieces );
+	}
+
+	/**
+	 * Exclude the orphaned variations (whose parent product no longer exists) from the WP_Query.
+	 * The parent is joined by its primary key, so it adds no noticeable cost to the query.
+	 *
+	 * @since 2.0.5
+	 *
+	 * @param array $pieces
+	 *
+	 * @return array
+	 */
+	public static function orphaned_variations_query_clauses( $pieces ) {
+
+		global $wpdb;
+
+		$pieces['join']  .= " LEFT JOIN $wpdb->posts AS atum_parent ON ($wpdb->posts.post_parent = atum_parent.ID)";
+		$pieces['where'] .= " AND ($wpdb->posts.post_type <> 'product_variation' OR atum_parent.ID IS NOT NULL)";
+
+		return $pieces;
+
+	}
+
+	/**
+	 * Join the parent products to the unmanaged products query to be able to exclude the orphaned variations
+	 *
+	 * @since 2.0.5
+	 *
+	 * @param array $unmng_join
+	 *
+	 * @return array
+	 */
+	public static function orphaned_variations_unmanaged_join( $unmng_join ) {
+
+		global $wpdb;
+
+		$unmng_join[] = "LEFT JOIN $wpdb->posts AS atum_parent ON (posts.post_parent = atum_parent.ID)";
+
+		return $unmng_join;
+
+	}
+
+	/**
+	 * Exclude the orphaned variations (whose parent product no longer exists) from the unmanaged products query
+	 *
+	 * @since 2.0.5
+	 *
+	 * @param array $unmng_where
+	 *
+	 * @return array
+	 */
+	public static function orphaned_variations_unmanaged_where( $unmng_where ) {
+
+		$unmng_where[] = "AND (posts.post_type <> 'product_variation' OR atum_parent.ID IS NOT NULL)";
+
+		return $unmng_where;
+
 	}
 
 	/**
