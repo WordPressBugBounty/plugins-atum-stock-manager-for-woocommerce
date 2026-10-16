@@ -75,14 +75,14 @@ class Orders {
 	 * Cannot be cloned
 	 */
 	public function __clone() {
-		_doing_it_wrong( __FUNCTION__, esc_attr__( 'Cheatin&#8217; huh?', ATUM_ST_TEXT_DOMAIN ), '1.0.0' );
+		_doing_it_wrong( __FUNCTION__, esc_attr__( 'Cheatin&#8217; huh?', 'atum-stock-manager-for-woocommerce' ), '1.0.0' );
 	}
 
 	/**
 	 * Cannot be serialized
 	 */
 	public function __sleep() {
-		_doing_it_wrong( __FUNCTION__, esc_attr__( 'Cheatin&#8217; huh?', ATUM_ST_TEXT_DOMAIN ), '1.0.0' );
+		_doing_it_wrong( __FUNCTION__, esc_attr__( 'Cheatin&#8217; huh?', 'atum-stock-manager-for-woocommerce' ), '1.0.0' );
 	}
 
 	/**

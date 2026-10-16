@@ -935,10 +935,12 @@ final class WidgetHelpers {
 
 		}
 
-		// Get products in stock.
+		// Get products in stock (excluding the orphaned variations).
 		add_filter( 'posts_clauses', array( __CLASS__, 'atum_product_data_query_clauses' ) );
+		add_filter( 'posts_clauses', array( __CLASS__, 'orphaned_variations_query_clauses' ) );
 		$products_query = new \WP_Query( apply_filters( 'atum/dashboard/get_items/products_args', $args ) );
 		remove_filter( 'posts_clauses', array( __CLASS__, 'atum_product_data_query_clauses' ) );
+		remove_filter( 'posts_clauses', array( __CLASS__, 'orphaned_variations_query_clauses' ) );
 
 		$products_sql = $products_query->request;
 

@@ -7,7 +7,7 @@ Tested up to: 7.1.3
 Requires PHP: 7.4
 WC requires at least: 8.0
 WC tested up to: 11.2.1
-Stable tag: 2.0.5
+Stable tag: 2.0.6
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -213,6 +213,20 @@ We officially support: WooCommerce Product Bundles, WooCommerce Subscriptions, W
 
 
 == Changelog ==
+
+`2.0.6`
+
+*2026-10-16*
+
+**Changes**
+
+* Excluded orphan variations from the Current Stock Value widget.
+
+**Fixes**
+
+* Fixed PHP warnings on every admin and REST request caused by a development-only class missing from the package when ATUM add-ons are active.
+* Security: the add-ons auto-installer now only accepts known add-ons and well-formed license keys.
+* Fixed an undefined constant error in the REST API orders extender when the Stock Takes add-on is not active.
 
 ---
 

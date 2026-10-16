@@ -49,6 +49,7 @@ final class Addons {
 	/**
 	 * Array with paths used for every add-on
 	 * NOTE: The name must match the one used within the ADDON_NAME constant within each add-on.
+	 * NOTE: The add-ons page auto-installer only accepts tokens for the add-ons listed here, so add each new add-on when it launches.
 	 *
 	 * @var array
 	 */
@@ -286,8 +287,17 @@ final class Addons {
 			'uninstallTrial'	   => __( 'We have detected that you still have the trial version installed. The trial version cannot coexist with the full version.<br>Do you want to uninstall the trial plugin?', ATUM_TEXT_DOMAIN ),
 		);
 
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only: the token only pre-fills the auto-installer confirmation; each install goes through the nonce-checked license AJAX actions.
 		if ( isset( $_GET['auto-install'], $_GET['token'] ) && '1' === $_GET['auto-install'] ) {
-			$addons_vars['autoInstallData'] = Helpers::unrot_token( $_GET['token'] );
+
+			// The page script renders the token values as HTML, so only known add-ons and well-formed keys may reach it.
+			// phpcs:ignore WordPress.Security.NonceVerification.Recommended, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Same read-only token; get_auto_install_data() checks every value against the add-on allow-list and the key format.
+			$auto_install_data = self::get_auto_install_data( wp_unslash( $_GET['token'] ) );
+
+			if ( $auto_install_data ) {
+				$addons_vars['autoInstallData'] = $auto_install_data;
+			}
+
 		}
 
 		wp_localize_script( 'atum-addons', 'atumAddons', $addons_vars );
@@ -306,6 +316,45 @@ final class Addons {
 		);
 
 		Helpers::load_view( 'add-ons/list', $args );
+
+	}
+
+	/**
+	 * Decode an add-ons auto-install token, keeping it only when every add-on is known and every license key is well formed
+	 *
+	 * @since 2.0.6
+	 *
+	 * @param string $token
+	 *
+	 * @return string The query string for the auto-installer, or an empty string when the token is not valid.
+	 */
+	private static function get_auto_install_data( $token ) {
+
+		wp_parse_str( Helpers::unrot_token( (string) $token ), $params );
+
+		$addons = isset( $params['addon'] ) && is_array( $params['addon'] ) ? array_values( $params['addon'] ) : [];
+		$keys   = isset( $params['key'] ) && is_array( $params['key'] ) ? array_values( $params['key'] ) : [];
+
+		if ( empty( $addons ) || count( $addons ) !== count( $keys ) ) {
+			return '';
+		}
+
+		$known_addons = wp_list_pluck( self::$addons_paths, 'name' );
+		$pairs        = [];
+
+		foreach ( $addons as $index => $addon ) {
+
+			$key = $keys[ $index ];
+
+			if ( ! is_string( $addon ) || ! is_string( $key ) || ! in_array( $addon, $known_addons, TRUE ) || ! preg_match( '/^[A-Za-z0-9_-]{1,100}$/', $key ) ) {
+				return '';
+			}
+
+			$pairs[] = 'addon[]=' . rawurlencode( $addon ) . '&key[]=' . rawurlencode( $key );
+
+		}
+
+		return implode( '&', $pairs );
 
 	}
 
