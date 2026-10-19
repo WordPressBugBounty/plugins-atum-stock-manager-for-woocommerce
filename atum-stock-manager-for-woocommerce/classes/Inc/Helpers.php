@@ -2141,9 +2141,12 @@ final class Helpers {
 				// Calculate the inbound stock from pending purchase orders.
 				global $wpdb;
 
+				// Not $wpdb->atum_order_itemmeta: it's only registered when the current user can read POs (not in AS async runners).
+				$order_itemmeta_table = $wpdb->prefix . AtumOrderPostType::ORDER_ITEM_META_TABLE;
+
 				$joins = array(
-					"LEFT JOIN `$wpdb->atum_order_itemmeta` AS oim ON oi.`order_item_id` = oim.`order_item_id`",
-					"LEFT JOIN `$wpdb->atum_order_itemmeta` AS oim2 ON oi.`order_item_id` = oim2.`order_item_id`",
+					"LEFT JOIN `$order_itemmeta_table` AS oim ON oi.`order_item_id` = oim.`order_item_id`",
+					"LEFT JOIN `$order_itemmeta_table` AS oim2 ON oi.`order_item_id` = oim2.`order_item_id`",
 					"LEFT JOIN `$wpdb->posts` AS p ON oi.`order_id` = p.`ID`",
 				);
 

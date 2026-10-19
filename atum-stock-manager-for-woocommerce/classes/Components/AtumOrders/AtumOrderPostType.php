@@ -86,13 +86,7 @@ abstract class AtumOrderPostType {
 	 */
 	protected function init() {
 
-		// Add the ATUM Orders' meta table to wpdb.
-		global $wpdb;
-
-		if ( ! in_array( self::ORDER_ITEM_META_TABLE, $wpdb->tables ) ) {
-			$wpdb->atum_order_itemmeta = $wpdb->prefix . self::ORDER_ITEM_META_TABLE;
-			$wpdb->tables[]            = self::ORDER_ITEM_META_TABLE;
-		}
+		self::register_tables();
 
 		// Register the post type.
 		add_action( 'init', array( $this, 'register_post_type' ), 5 ); // Using the same priority as WooCommerce.
@@ -194,6 +188,64 @@ abstract class AtumOrderPostType {
 		// Register the ATUM Order post type.
 		register_post_type( $post_type, $args );
 
+		static::register_post_statuses();
+
+		// Register the taxomony only if needed by the custom post type.
+		if ( defined( 'static::TAXONOMY' ) && ! empty( static::TAXONOMY ) ) {
+
+			$args = apply_filters( 'atum/order_post_type/taxonomy_args', wp_parse_args( array(
+				'hierarchical'          => FALSE,
+				'show_ui'               => FALSE,
+				'show_in_nav_menus'     => FALSE,
+				'query_var'             => is_admin(),
+				'rewrite'               => FALSE,
+				'public'                => FALSE,
+				'update_count_callback' => array( $this, 'order_term_recount' ),
+			), $args ));
+
+			// Register the hidden order type taxonomy (if used).
+			register_taxonomy( static::TAXONOMY, array( $post_type ), $args );
+
+		}
+
+	}
+
+	/**
+	 * Register the data an ATUM order type needs in requests where its module class is not loaded.
+	 * Background jobs (WP-Cron, Action Scheduler runners) run without the current user's ATUM capabilities.
+	 *
+	 * @since 2.0.7
+	 */
+	public static function register_data_layer() {
+
+		self::register_tables();
+		add_action( 'init', array( static::class, 'register_post_statuses' ), 5 ); // Same priority as register_post_type.
+
+	}
+
+	/**
+	 * Add the ATUM Orders' meta table to wpdb
+	 *
+	 * @since 2.0.7
+	 */
+	public static function register_tables() {
+
+		global $wpdb;
+
+		if ( ! in_array( self::ORDER_ITEM_META_TABLE, $wpdb->tables ) ) {
+			$wpdb->atum_order_itemmeta = $wpdb->prefix . self::ORDER_ITEM_META_TABLE;
+			$wpdb->tables[]            = self::ORDER_ITEM_META_TABLE;
+		}
+
+	}
+
+	/**
+	 * Register the ATUM Order post statuses
+	 *
+	 * @since 2.0.7
+	 */
+	public static function register_post_statuses() {
+
 		// Register the post statuses.
 		$atum_statuses = [];
 		foreach ( static::get_statuses() as $status => $label ) {
@@ -229,24 +281,6 @@ abstract class AtumOrderPostType {
 			}
 
 			register_post_status( $atum_status, $values );
-
-		}
-
-		// Register the taxomony only if needed by the custom post type.
-		if ( defined( 'static::TAXONOMY' ) && ! empty( static::TAXONOMY ) ) {
-
-			$args = apply_filters( 'atum/order_post_type/taxonomy_args', wp_parse_args( array(
-				'hierarchical'          => FALSE,
-				'show_ui'               => FALSE,
-				'show_in_nav_menus'     => FALSE,
-				'query_var'             => is_admin(),
-				'rewrite'               => FALSE,
-				'public'                => FALSE,
-				'update_count_callback' => array( $this, 'order_term_recount' ),
-			), $args ));
-
-			// Register the hidden order type taxonomy (if used).
-			register_taxonomy( static::TAXONOMY, array( $post_type ), $args );
 
 		}
 

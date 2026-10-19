@@ -62,7 +62,7 @@ class AtumQueues {
 	const EXPIRING_PROPS_BATCH_SIZE = 200;
 
 	/**
-	 * Default seconds allowed for one expiring-props run (AS kills the job around 30s)
+	 * Default seconds allowed for one expiring-props run (AS gives each queue request a 30s time limit)
 	 */
 	const EXPIRING_PROPS_TIME_BUDGET = 20;
 
@@ -114,6 +114,15 @@ class AtumQueues {
 	private static $allowed_async_callbacks = NULL;
 
 	/**
+	 * Whether the Action Scheduler queue request being processed already ran an expiring-props action
+	 *
+	 * @since 2.0.7
+	 *
+	 * @var bool
+	 */
+	private $expiring_props_ran_in_queue = FALSE;
+
+	/**
 	 * AtumQueues singleton constructor
 	 *
 	 * @since 1.5.8
@@ -144,6 +153,10 @@ class AtumQueues {
 		// Add the ATUM's recurring hooks.
 		add_action( self::EXPIRING_PROPS_HOOK, array( $this, 'action_update_expiring_product_props' ) );
 		add_action( self::EXPIRING_PROPS_CONTINUE_HOOK, array( $this, 'action_update_expiring_product_props' ) );
+
+		// Run a single expiring-props action per AS queue request.
+		add_action( 'action_scheduler_before_process_queue', array( $this, 'reset_expiring_props_queue_flag' ) );
+		add_filter( 'action_scheduler_maximum_execution_time_likely_to_be_exceeded', array( $this, 'stop_queue_after_expiring_props' ) );
 
 		// Add the sales calc recurring hook.
 		add_action( 'atum/cron_update_sales_calc_props', array( $this, 'action_update_last_sales_calc_props' ) );
@@ -323,6 +336,9 @@ class AtumQueues {
 			$this->enqueue_expiring_product_props_continuation();
 		}
 
+		// Set before processing so a run that throws also ends the AS queue request.
+		$this->expiring_props_ran_in_queue = TRUE;
+
 		$started   = microtime( TRUE );
 		$processed = 0;
 
@@ -484,6 +500,31 @@ class AtumQueues {
 
 		return ! empty( $action_id );
 
+	}
+
+	/**
+	 * Forget the expiring-props run of a previous AS queue request
+	 *
+	 * @since 2.0.7
+	 */
+	public function reset_expiring_props_queue_flag() {
+		$this->expiring_props_ran_in_queue = FALSE;
+	}
+
+	/**
+	 * Stop the AS queue request after an expiring-props run when a PHP time limit applies
+	 * NOTE: AS predicts the time left from the average action duration, so fast actions in the same request let it start
+	 * the already queued continuation late. Two chained runs exceed the PHP time limit, and the fatal leaves the action in-progress.
+	 * Without a time limit (e.g. WP-CLI), chaining is safe and drains faster.
+	 *
+	 * @since 2.0.7
+	 *
+	 * @param bool $likely_to_be_exceeded
+	 *
+	 * @return bool
+	 */
+	public function stop_queue_after_expiring_props( $likely_to_be_exceeded ) {
+		return $likely_to_be_exceeded || ( $this->expiring_props_ran_in_queue && (int) ini_get( 'max_execution_time' ) > 0 );
 	}
 
 	/**

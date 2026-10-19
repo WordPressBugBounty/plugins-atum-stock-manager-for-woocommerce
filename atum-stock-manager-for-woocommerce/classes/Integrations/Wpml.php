@@ -190,6 +190,9 @@ class Wpml {
 		// Get all product translations ids to calculate calculated properties.
 		add_filter( 'atum/product_calc_stock_on_hold/product_ids', array( $this, 'get_product_translations_ids' ), 10, 2 );
 
+		// Add translations to inbound stock where clause (also in background recalculations).
+		add_filter( 'atum/product_inbound_stock/sql_where', array( $this, 'include_translations_inbound_where' ), 10, 2 );
+
 		add_action( 'wpml_pro_translation_completed', array( $this, 'new_translation_completed' ), 111, 3 );
 
 		// Exclude ATUM Product Data attributes for translation queries.
@@ -271,9 +274,6 @@ class Wpml {
 
 			// Exclude duplicated categories at SC categories and locations dropdown.
 			add_filter( 'atum/list_table/get_filtered_terms_extra_criteria', array( $this, 'exclude_duplicated_terms' ), PHP_INT_MAX, 2 );
-
-			// Add translations to inboud stock where clause.
-			add_filter( 'atum/product_inbound_stock/sql_where', array( $this, 'include_translations_inbound_where' ), 10, 2 );
 
 			// Add the current lang to counters transient.
 			add_filter( 'atum/list_table/get_counters_transient_args', array( $this, 'get_products_transient_param' ) );

@@ -252,11 +252,21 @@ class Main {
 		//
 		// Load conditional modules
 		// ------------------------!
-		if ( AtumCapabilities::current_user_can( 'read_inventory_logs' ) && ModuleManager::is_module_active( 'inventory_logs' ) ) {
-			InventoryLogs::get_instance();
+		// Without the module class (no ATUM capabilities, e.g. background jobs), only register its data layer.
+		if ( ModuleManager::is_module_active( 'inventory_logs' ) ) {
+
+			if ( AtumCapabilities::current_user_can( 'read_inventory_logs' ) ) {
+				InventoryLogs::get_instance();
+			}
+			else {
+				InventoryLogs::register_data_layer();
+			}
+
 		}
 
 		if ( ModuleManager::is_module_active( 'purchase_orders' ) ) {
+
+			$purchase_orders_loaded = FALSE;
 
 			if ( AtumCapabilities::current_user_can( 'read_suppliers' ) ) {
 				Suppliers::get_instance();
@@ -265,12 +275,17 @@ class Main {
 				if ( AtumCapabilities::current_user_can( 'read_purchase_orders' ) ) {
 
 					PurchaseOrders::get_instance();
+					$purchase_orders_loaded = TRUE;
 
 					// The Purchase Orders is a dependency for Inbound Stock.
 					if ( AtumCapabilities::current_user_can( 'read_inbound_stock' ) ) {
 						InboundStock::get_instance();
 					}
 				}
+			}
+
+			if ( ! $purchase_orders_loaded ) {
+				PurchaseOrders::register_data_layer();
 			}
 
 		}

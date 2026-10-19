@@ -616,7 +616,7 @@ class Hooks {
 		if ( ! $paid_date ) {
 
 			$order_mod = wc_get_order( $order_id );
-			$order_mod->set_date_paid( Helpers::get_current_timestamp() );
+			$order_mod->set_date_paid( Helpers::get_current_timestamp( TRUE ) );
 			$order_mod->save();
 		}
 

@@ -435,7 +435,8 @@ class AtumCalculatedProps {
 				}
 
 				if ( $update || $force_save ) {
-					$product->set_update_date( Helpers::get_current_timestamp() );
+					// WC set_date_prop treats numeric values as UTC.
+					$product->set_update_date( Helpers::get_current_timestamp( TRUE ) );
 					$product->save_atum_data();
 
 					do_action( 'atum/after_update_product_calc_props', $product );
